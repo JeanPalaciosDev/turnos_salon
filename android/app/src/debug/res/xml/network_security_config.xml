@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Permite tráfico HTTP sin cifrar (cleartext) SOLO hacia el host del Firebase
+  Emulator Suite. Necesario porque el emulador de Auth/Firestore habla por HTTP
+  plano y Android (API 28+) lo bloquea por defecto.
+
+  Vive en src/debug/ → solo aplica al build de debug. El build de release usa la
+  config por defecto (cleartext bloqueado), así que producción NO se ve afectada.
+
+  - 10.0.2.2  → host de la máquina anfitriona visto desde el emulador Android.
+  - localhost / 127.0.0.1 → por si se corre en dispositivo con reverse-proxy/adb.
+-->
+<network-security-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">10.0.2.2</domain>
+        <domain includeSubdomains="true">localhost</domain>
+        <domain includeSubdomains="true">127.0.0.1</domain>
+    </domain-config>
+</network-security-config>

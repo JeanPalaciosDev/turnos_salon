@@ -1,0 +1,32 @@
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "turnos-salon-163b5",
+          "appId": "1:108398579902:android:ef2652b9297f59ab6e0eef",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "turnos-salon-163b5",
+          "configurations": {
+            "android": "1:108398579902:android:ef2652b9297f59ab6e0eef",
+            "web": "1:108398579902:web:294df5c9a0344c1a6e0eef"
+          }
+        }
+      }
+    }
+  },
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "emulators": {
+    "auth": { "port": 9099 },
+    "firestore": { "port": 8080 },
+    "ui": { "enabled": true, "port": 4000 },
+    "singleProjectMode": true
+  }
+}

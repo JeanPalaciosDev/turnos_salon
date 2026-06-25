@@ -1,0 +1,30 @@
+rules_version = '2';
+
+// ┌─────────────────────────────────────────────────────────────────────────┐
+// │ REGLAS DEL EMULADOR — PERMISIVAS. **SOLO LOCAL, NUNCA SE DESPLIEGAN.**     │
+// │                                                                           │
+// │ Motivo: el seed de la app (`lib/dev/seed.dart`) corre en `main()` ANTES   │
+// │ de cualquier login y necesita leer/escribir libremente para sembrar       │
+// │ datos + cuentas demo. Las reglas estrictas de `firestore.rules` (que sí   │
+// │ van a la nube) bloquean ese bootstrap (chicken-and-egg: no se puede crear │
+// │ el primer usuario `dueno` porque escribir `usuarios` exige ya ser dueño). │
+// │                                                                           │
+// │ Este archivo se usa SOLO al arrancar el emulador con:                     │
+// │   firebase emulators:start --config firebase.emulator.json               │
+// │ El deploy a la nube usa `firebase.json` → `firestore.rules` (estrictas).  │
+// │                                                                           │
+// │ La validación BEHAVIORAL de las reglas estrictas se hace aparte con el    │
+// │ harness `test_rules/` (@firebase/rules-unit-testing), que carga las       │
+// │ reglas estrictas reales y asserta allow/deny por rol.                     │
+// │                                                                           │
+// │ Los guards de UI/navegación por rol (drawer, redirects, prefiltro del     │
+// │ estilista, botones ocultos) son lógica Dart y SÍ se ejercitan en la app   │
+// │ aunque estas reglas sean permisivas.                                      │
+// └─────────────────────────────────────────────────────────────────────────┘
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if true;
+    }
+  }
+}

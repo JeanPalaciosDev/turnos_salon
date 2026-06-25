@@ -1,0 +1,13 @@
+// ┌─────────────────────────────────────────────────────────────────────────┐
+// │ OBSOLETO — NO USAR.                                                        │
+// │                                                                           │
+// │ Este archivo contenía un borrador de reglas planas (`signedIn()`) para    │
+// │ activar en Fase 2. Quedó superado: las reglas VIGENTES (granulares por    │
+// │ rol, Fase 2 cerrada) viven en `firestore.rules`, que es la ÚNICA fuente   │
+// │ de verdad y la que se despliega:                                          │
+// │                                                                           │
+// │   firebase deploy --only firestore:rules                                  │
+// │                                                                           │
+// │ Ya no hay que "copiar tal cual" nada sobre `firestore.rules`.             │
+// │ Se conserva este archivo solo como puntero histórico; puede borrarse.     │
+// └─────────────────────────────────────────────────────────────────────────┘
