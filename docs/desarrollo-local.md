@@ -19,6 +19,29 @@ Cuentas sembradas automáticamente **solo cuando la app corre contra el emulador
 
 ## Correr contra el emulador (datos demo)
 
+### Forma rápida (recomendada): `run-dev.ps1`
+
+Con un emulador de Android ya abierto (o dispositivo conectado), desde la raíz:
+
+```powershell
+./run-dev.ps1                          # Android emulator (host 10.0.2.2)
+./run-dev.ps1 -EmulatorHost 127.0.0.1  # web / Windows desktop / iOS
+```
+
+El script ([`run-dev.ps1`](../run-dev.ps1)) hace los tres pasos en el orden correcto:
+1. Levanta el Emulator Suite con la config **permisiva** (`--config firebase.emulator.json
+   --only auth,firestore`) — imprescindible para que el seed siembre (ver nota más abajo).
+2. **Espera** a que Firestore (8080) acepte conexiones antes de lanzar la app (si no, el
+   seed inicial falla con `ECONNREFUSED`).
+3. Lanza `flutter run` con los `--dart-define` ya puestos.
+
+Persiste el estado del emulador en `./emulator-data` y lo reimporta en la próxima corrida
+(el seed es idempotente, así que no duplica nada).
+
+> Requiere Firebase CLI y JDK 21+ en el PATH (ver requisitos abajo).
+
+### Forma manual (dos terminales)
+
 Requisitos:
 - **JDK 21 o superior** instalado y en el PATH (lo necesita el emulador de Firestore).
   Si falta, `firebase emulators:start` falla con `spawn java ENOENT`; con JDK < 21

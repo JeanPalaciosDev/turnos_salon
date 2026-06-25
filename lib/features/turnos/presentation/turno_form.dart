@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/util/colores.dart';
 import '../../../core/util/horas.dart';
 import '../../auth/application/auth_providers.dart';
 import '../../clientes/data/clientes_repository.dart';
 import '../../clientes/presentation/cliente_form.dart';
 import '../../servicios/data/servicios_repository.dart';
+import '../../servicios/domain/servicio.dart';
 import '../../trabajadores/data/trabajadores_repository.dart';
 import '../data/turnos_repository.dart';
 import '../domain/turno.dart';
@@ -52,6 +54,16 @@ class _TurnoFormState extends ConsumerState<TurnoForm> {
   late DateTime _fecha;
   TimeOfDay? _horaInicio;
   late final TextEditingController _notas;
+
+  /// Filtro de búsqueda de servicios (por nombre o categoría).
+  String _busquedaServicio = '';
+
+  /// Cuando es `true` el catálogo muestra todos los servicios disponibles;
+  /// si no, solo un preview corto (la búsqueda siempre muestra todo lo que matchea).
+  bool _catalogoExpandido = false;
+
+  /// Máximo de chips de catálogo visibles sin búsqueda antes de "Ver todos".
+  static const _maxCatalogo = 10;
 
   @override
   void initState() {
@@ -151,6 +163,129 @@ class _TurnoFormState extends ConsumerState<TurnoForm> {
     Navigator.of(context).pop();
   }
 
+  /// Selector de servicios centrado en la búsqueda: los seleccionados se ven
+  /// como chips removibles arriba, y debajo un buscador por nombre + un catálogo
+  /// plano de chips "tocar para agregar". Sin encabezados de categoría, para que
+  /// la vista quede liviana incluso con muchos servicios.
+  Widget _selectorServicios(List<Servicio> servicios) {
+    final scheme = Theme.of(context).colorScheme;
+    final q = _busquedaServicio.trim().toLowerCase();
+    final buscando = q.isNotEmpty;
+
+    // Disponibles: activos + los ya seleccionados (caso edición de inactivos).
+    final disponibles = servicios
+        .where((s) => s.activo || _servicioIds.contains(s.id))
+        .toList();
+
+    final seleccionados = disponibles
+        .where((s) => _servicioIds.contains(s.id))
+        .toList()
+      ..sort((a, b) => a.nombre.compareTo(b.nombre));
+
+    // Catálogo = no seleccionados que matchean la búsqueda (los seleccionados
+    // ya se ven arriba; no se repiten abajo).
+    final coincidencias = disponibles
+        .where((s) => !_servicioIds.contains(s.id))
+        .where((s) =>
+            !buscando ||
+            s.nombre.toLowerCase().contains(q) ||
+            (s.categoria ?? '').toLowerCase().contains(q))
+        .toList()
+      ..sort((a, b) => a.nombre.compareTo(b.nombre));
+
+    // Sin búsqueda: preview corto. Con búsqueda: todo lo que matchea.
+    final mostrarTodo = buscando || _catalogoExpandido;
+    final catalogo =
+        mostrarTodo ? coincidencias : coincidencias.take(_maxCatalogo).toList();
+    final ocultos = coincidencias.length - catalogo.length;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 8),
+
+        // Seleccionados (removibles con ✕).
+        if (seleccionados.isNotEmpty) ...[
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [for (final s in seleccionados) _chipSeleccionado(s)],
+          ),
+          const SizedBox(height: 12),
+        ],
+
+        // Buscador por nombre (siempre visible).
+        TextField(
+          decoration: InputDecoration(
+            isDense: true,
+            hintText: 'Buscar servicio por nombre',
+            prefixIcon: const Icon(Icons.search, size: 20),
+            suffixIcon: buscando
+                ? IconButton(
+                    icon: const Icon(Icons.close, size: 18),
+                    onPressed: () => setState(() => _busquedaServicio = ''),
+                  )
+                : null,
+            border: const OutlineInputBorder(),
+          ),
+          onChanged: (v) => setState(() => _busquedaServicio = v),
+        ),
+        const SizedBox(height: 12),
+
+        // Catálogo "tocar para agregar".
+        if (coincidencias.isEmpty)
+          Text(
+            buscando
+                ? 'Sin resultados para "${_busquedaServicio.trim()}"'
+                : 'Todos los servicios ya están agregados',
+            style: TextStyle(color: scheme.onSurfaceVariant),
+          )
+        else
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final s in catalogo) _chipDisponible(s),
+              if (ocultos > 0)
+                ActionChip(
+                  label: Text('Ver todos (+$ocultos)'),
+                  onPressed: () =>
+                      setState(() => _catalogoExpandido = true),
+                )
+              else if (_catalogoExpandido && !buscando)
+                ActionChip(
+                  label: const Text('Ver menos'),
+                  onPressed: () =>
+                      setState(() => _catalogoExpandido = false),
+                ),
+            ],
+          ),
+      ],
+    );
+  }
+
+  /// Chip de un servicio ya elegido: tinte con su color y ✕ para quitarlo.
+  Widget _chipSeleccionado(Servicio s) {
+    final color = colorFromHex(s.color);
+    return InputChip(
+      avatar: CircleAvatar(radius: 5, backgroundColor: color),
+      label: Text('${s.nombre} · ${s.duracionMin}m'),
+      backgroundColor: color.withValues(alpha: 0.15),
+      side: BorderSide(color: color),
+      onDeleted: () => setState(() => _servicioIds.remove(s.id)),
+    );
+  }
+
+  /// Chip de un servicio del catálogo: tocar para agregarlo a la selección.
+  Widget _chipDisponible(Servicio s) {
+    final color = colorFromHex(s.color);
+    return ActionChip(
+      avatar: CircleAvatar(radius: 5, backgroundColor: color),
+      label: Text('${s.nombre} · ${s.duracionMin}m'),
+      onPressed: () => setState(() => _servicioIds.add(s.id)),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final clientes = ref.watch(clientesStreamProvider).value;
@@ -242,28 +377,23 @@ class _TurnoFormState extends ConsumerState<TurnoForm> {
             const SizedBox(height: 16),
 
             // Servicios
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Text('Servicios',
-                  style: Theme.of(context).textTheme.titleSmall),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Servicios',
+                    style: Theme.of(context).textTheme.titleSmall),
+                if (selServicios.isNotEmpty)
+                  Text(
+                    '${selServicios.length} · $durTotal min',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant),
+                  ),
+              ],
             ),
             if (servicios.isEmpty)
               const _SinDatos(texto: 'No hay servicios cargados.')
             else
-              ...servicios.map((s) => CheckboxListTile(
-                    dense: true,
-                    contentPadding: EdgeInsets.zero,
-                    value: _servicioIds.contains(s.id),
-                    title: Text(s.nombre),
-                    subtitle: Text('${s.duracionMin} min · ref. \$${s.precioReferencia}'),
-                    onChanged: (v) => setState(() {
-                      if (v == true) {
-                        _servicioIds.add(s.id);
-                      } else {
-                        _servicioIds.remove(s.id);
-                      }
-                    }),
-                  )),
+              _selectorServicios(servicios),
             const SizedBox(height: 8),
 
             // Fecha + hora
