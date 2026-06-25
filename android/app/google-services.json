@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "108398579902",
+    "project_id": "turnos-salon-163b5",
+    "storage_bucket": "turnos-salon-163b5.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:108398579902:android:ef2652b9297f59ab6e0eef",
+        "android_client_info": {
+          "package_name": "com.jeanpalacios.turnos_salon"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCjXKiW5KS-ZEbzrMzHlav4sCpYjBOYeAw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

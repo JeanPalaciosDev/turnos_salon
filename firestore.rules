@@ -1,0 +1,73 @@
+rules_version = '2';
+
+// ┌─────────────────────────────────────────────────────────────────────────┐
+// │ REGLAS ESTRICTAS — ACTIVAS (Fase 2). Ya NO es modo test abierto.          │
+// │ La app tiene Firebase Auth y mapeo usuarios→trabajador+rol. Solo staff    │
+// │ autenticado y ACTIVO puede leer; las escrituras se restringen por rol     │
+// │ según la matriz de permisos del producto.                                 │
+// │                                                                           │
+// │ Fuente única de verdad de reglas: ESTE archivo. (`firestore.rules.fase2`  │
+// │ quedó obsoleto.) Desplegar con:                                           │
+// │   firebase deploy --only firestore:rules                                  │
+// └─────────────────────────────────────────────────────────────────────────┘
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helpers de rol ──────────────────────────────────────────────────────
+    // Lee el doc usuarios/{uid} del autenticado para resolver rol y estado.
+    function usuario() {
+      return get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data;
+    }
+    function signedIn() { return request.auth != null; }
+    function activo() { return signedIn() && usuario().activo == true; }
+    function rol() { return usuario().rol; }
+    function esDueno() { return activo() && rol() == 'dueno'; }
+    function gestionTurnos() {
+      return activo() && (rol() == 'dueno' || rol() == 'recepcion');
+    }
+
+    // ── Usuarios (cuenta + rol) ─────────────────────────────────────────────
+    // Lectura: todo staff activo (la UI denormaliza nombre/rol). Escritura:
+    // solo dueño (alta/edición de staff in-app). NUNCA `write: if false`.
+    match /usuarios/{uid} {
+      allow read: if activo();
+      allow write: if esDueno();
+    }
+
+    // ── Catálogos (lectura general para que la agenda funcione) ──────────────
+    match /config/{doc}    { allow read: if activo(); allow write: if esDueno(); }
+    match /servicios/{id}  { allow read: if activo(); allow write: if esDueno(); }
+    match /trabajadores/{id} {
+      allow read: if activo();
+      allow write: if esDueno();
+      match /ausencias/{aid} { allow read: if activo(); allow write: if esDueno(); }
+    }
+
+    // ── Clientes ────────────────────────────────────────────────────────────
+    // Estilista solo lectura; dueño/recepción CRUD.
+    match /clientes/{id} {
+      allow read: if activo();
+      allow write: if gestionTurnos();
+    }
+
+    // ── Turnos ──────────────────────────────────────────────────────────────
+    // Lectura: todo staff activo (el prefiltro del estilista es a nivel UI).
+    // create/update: dueño/recepción siempre; el estilista puede sobre los
+    // turnos de SU trabajador_id.
+    //   - create: el doc todavía no existe → se valida request.resource.data.
+    //   - update: el doc ya existe → se valida resource.data (el doc previo).
+    // SIMPLIFICACIÓN MVP: no se restringe a nivel de campo (el estilista solo
+    // debería cambiar `estado`). Refinar con request.resource.data.diff() más
+    // adelante para impedir que toque otros campos.
+    match /turnos/{id} {
+      allow read: if activo();
+      allow create: if gestionTurnos()
+        || (activo() && rol() == 'estilista'
+            && request.resource.data.trabajador_id == usuario().trabajador_id);
+      allow update: if gestionTurnos()
+        || (activo() && rol() == 'estilista'
+            && resource.data.trabajador_id == usuario().trabajador_id);
+      allow delete: if gestionTurnos();
+    }
+  }
+}

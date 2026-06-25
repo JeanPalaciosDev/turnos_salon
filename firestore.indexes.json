@@ -1,0 +1,5 @@
+{
+  "comment": "Sin indices compuestos: todas las queries filtran por igualdad y ordenan en el cliente (ver turnos_repository.dart). Si se anaden queries con where+orderBy de campos distintos, firebase deploy fallara con un enlace para crear el indice; pegalo aqui.",
+  "indexes": [],
+  "fieldOverrides": []
+}

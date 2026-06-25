@@ -1,0 +1,14 @@
+{
+  "name": "turnos-salon-rules-test",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Tests de las reglas estrictas de Firestore (firestore.rules) por rol, con @firebase/rules-unit-testing. Requiere el emulador de Firestore corriendo en 127.0.0.1:8080.",
+  "scripts": {
+    "test": "node --test"
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^4.0.1",
+    "firebase": "^11.0.0"
+  }
+}
