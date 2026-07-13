@@ -6,6 +6,7 @@ import '../features/auth/domain/usuario.dart';
 import '../features/clientes/domain/cliente.dart';
 import '../features/config/domain/salon_config.dart';
 import '../features/servicios/domain/servicio.dart';
+import '../features/tenant/domain/tenant.dart';
 import '../features/trabajadores/domain/trabajador.dart';
 import '../features/turnos/domain/turno.dart';
 
@@ -104,9 +105,9 @@ Future<void> seedEmulatorIfEmpty(FirebaseFirestore db) async {
   // los agrupa con la marca "⟂ 2 en simultáneo". Caso clave del producto.
   final turnos = <Turno>[
     _turno('t1', hoy, '09:00', 'ana', 'Ana', 'lucia', 'Lucía Gómez',
-        [_svc('corte', 'Corte de cabello', 30)], EstadoTurno.confirmado),
+        [_svc('corte', 'Corte de cabello', 30)], EstadoTurno.pendiente),
     _turno('t2', hoy, '09:15', 'ana', 'Ana', 'sofia', 'Sofía Ramírez',
-        [_svc('tinte', 'Tinte / Color', 90)], EstadoTurno.enCurso),
+        [_svc('tinte', 'Tinte / Color', 90)], EstadoTurno.noShow),
     _turno('t3', hoy, '10:00', 'marta', 'Marta', 'diego', 'Diego Fernández',
         [_svc('barba', 'Arreglo de barba', 20), _svc('corte', 'Corte de cabello', 30)],
         EstadoTurno.pendiente),
@@ -124,12 +125,350 @@ Future<void> seedEmulatorIfEmpty(FirebaseFirestore db) async {
           metodoPago: 'efectivo',
         ),
         fechaCobro: DateTime.now().subtract(const Duration(days: 1))),
+
+    // ── turnos históricos (días -1 a -9) ──────────────────────────────────
+    // Nota de alcance: se usan solo `ana`/`marta` como trabajadoras de estos
+    // turnos (no `luis`, cuyo rol de catálogo es `recepcion`, no `estilista`)
+    // para mantener el seed realista; el requisito de variedad ("cada
+    // trabajador usado" con ≥2 turnos completado) queda cubierto por ambas.
+    _turno('t4', _fmtFecha(DateTime.now().subtract(const Duration(days: 1))),
+        '09:00', 'ana', 'Ana', 'lucia', 'Lucía Gómez',
+        [_svc('corte', 'Corte de cabello', 30)], EstadoTurno.completado,
+        cobro: const Cobro(
+          lineas: [LineaCobro(servicioId: 'corte', nombre: 'Corte de cabello', monto: 8000)],
+          total: 8000,
+          metodoPago: 'efectivo',
+        ),
+        fechaCobro: DateTime.now().subtract(const Duration(days: 1))),
+    _turno('t5', _fmtFecha(DateTime.now().subtract(const Duration(days: 1))),
+        '10:30', 'marta', 'Marta', 'sofia', 'Sofía Ramírez',
+        [_svc('tinte', 'Tinte / Color', 90)], EstadoTurno.completado,
+        cobro: const Cobro(
+          lineas: [LineaCobro(servicioId: 'tinte', nombre: 'Tinte / Color', monto: 26000)],
+          total: 26000,
+          metodoPago: 'efectivo',
+        ),
+        fechaCobro: DateTime.now().subtract(const Duration(days: 1))),
+    _turno('t6', _fmtFecha(DateTime.now().subtract(const Duration(days: 2))),
+        '13:00', 'ana', 'Ana', 'diego', 'Diego Fernández',
+        [_svc('peinado', 'Peinado', 45)], EstadoTurno.completado,
+        cobro: const Cobro(
+          lineas: [LineaCobro(servicioId: 'peinado', nombre: 'Peinado', monto: 12000)],
+          total: 12000,
+          metodoPago: 'tarjeta',
+        ),
+        fechaCobro: DateTime.now().subtract(const Duration(days: 2))),
+    _turno('t7', _fmtFecha(DateTime.now().subtract(const Duration(days: 2))),
+        '15:00', 'marta', 'Marta', 'valen', 'Valentina Cruz',
+        [_svc('manicura', 'Manicura', 40)], EstadoTurno.completado,
+        cobro: const Cobro(
+          lineas: [LineaCobro(servicioId: 'manicura', nombre: 'Manicura', monto: 9000)],
+          total: 9000,
+          metodoPago: 'efectivo',
+        ),
+        fechaCobro: DateTime.now().subtract(const Duration(days: 2))),
+    _turno('t8', _fmtFecha(DateTime.now().subtract(const Duration(days: 2))),
+        '17:30', 'ana', 'Ana', 'lucia', 'Lucía Gómez',
+        [_svc('barba', 'Arreglo de barba', 20)], EstadoTurno.cancelado),
+    _turno('t9', _fmtFecha(DateTime.now().subtract(const Duration(days: 3))),
+        '19:00', 'marta', 'Marta', 'sofia', 'Sofía Ramírez',
+        [_svc('corte', 'Corte de cabello', 30)], EstadoTurno.completado,
+        cobro: const Cobro(
+          lineas: [LineaCobro(servicioId: 'corte', nombre: 'Corte de cabello', monto: 8500)],
+          total: 8500,
+          metodoPago: 'efectivo',
+        ),
+        fechaCobro: DateTime.now().subtract(const Duration(days: 3))),
+    _turno('t10', _fmtFecha(DateTime.now().subtract(const Duration(days: 3))),
+        '09:00', 'ana', 'Ana', 'diego', 'Diego Fernández',
+        [_svc('corte', 'Corte de cabello', 30), _svc('peinado', 'Peinado', 45)],
+        EstadoTurno.completado,
+        cobro: const Cobro(
+          lineas: [
+            LineaCobro(servicioId: 'corte', nombre: 'Corte de cabello', monto: 8000),
+            LineaCobro(servicioId: 'peinado', nombre: 'Peinado', monto: 12500),
+          ],
+          total: 19000,
+          descuento: 1500,
+          metodoPago: 'efectivo',
+        ),
+        fechaCobro: DateTime.now().subtract(const Duration(days: 3))),
+    _turno('t11', _fmtFecha(DateTime.now().subtract(const Duration(days: 4))),
+        '10:30', 'marta', 'Marta', 'valen', 'Valentina Cruz',
+        [_svc('tinte', 'Tinte / Color', 90)], EstadoTurno.completado,
+        cobro: const Cobro(
+          lineas: [LineaCobro(servicioId: 'tinte', nombre: 'Tinte / Color', monto: 25000)],
+          total: 25000,
+          metodoPago: 'tarjeta',
+        ),
+        fechaCobro: DateTime.now().subtract(const Duration(days: 4))),
+    _turno('t12', _fmtFecha(DateTime.now().subtract(const Duration(days: 4))),
+        '13:00', 'ana', 'Ana', 'lucia', 'Lucía Gómez',
+        [_svc('barba', 'Arreglo de barba', 20)], EstadoTurno.completado,
+        cobro: const Cobro(
+          lineas: [LineaCobro(servicioId: 'barba', nombre: 'Arreglo de barba', monto: 5000)],
+          total: 5000,
+          metodoPago: 'efectivo',
+        ),
+        fechaCobro: DateTime.now().subtract(const Duration(days: 4))),
+    _turno('t13', _fmtFecha(DateTime.now().subtract(const Duration(days: 4))),
+        '15:00', 'marta', 'Marta', 'sofia', 'Sofía Ramírez',
+        [_svc('peinado', 'Peinado', 45)], EstadoTurno.noShow),
+    _turno('t14', _fmtFecha(DateTime.now().subtract(const Duration(days: 5))),
+        '17:30', 'ana', 'Ana', 'diego', 'Diego Fernández',
+        [_svc('corte', 'Corte de cabello', 30)], EstadoTurno.completado,
+        cobro: const Cobro(
+          lineas: [LineaCobro(servicioId: 'corte', nombre: 'Corte de cabello', monto: 7500)],
+          total: 7500,
+          metodoPago: 'efectivo',
+        ),
+        fechaCobro: DateTime.now().subtract(const Duration(days: 5))),
+    _turno('t15', _fmtFecha(DateTime.now().subtract(const Duration(days: 5))),
+        '19:00', 'marta', 'Marta', 'valen', 'Valentina Cruz',
+        [_svc('manicura', 'Manicura', 40)], EstadoTurno.completado,
+        cobro: const Cobro(
+          lineas: [LineaCobro(servicioId: 'manicura', nombre: 'Manicura', monto: 9500)],
+          total: 9500,
+          metodoPago: 'efectivo',
+        ),
+        fechaCobro: DateTime.now().subtract(const Duration(days: 5))),
+    _turno('t16', _fmtFecha(DateTime.now().subtract(const Duration(days: 6))),
+        '09:00', 'ana', 'Ana', 'lucia', 'Lucía Gómez',
+        [_svc('tinte', 'Tinte / Color', 90)], EstadoTurno.completado,
+        cobro: const Cobro(
+          lineas: [LineaCobro(servicioId: 'tinte', nombre: 'Tinte / Color', monto: 24000)],
+          total: 24000,
+          metodoPago: 'tarjeta',
+        ),
+        fechaCobro: DateTime.now().subtract(const Duration(days: 6))),
+    _turno('t17', _fmtFecha(DateTime.now().subtract(const Duration(days: 6))),
+        '10:30', 'marta', 'Marta', 'sofia', 'Sofía Ramírez',
+        [_svc('barba', 'Arreglo de barba', 20)], EstadoTurno.completado,
+        cobro: const Cobro(
+          lineas: [LineaCobro(servicioId: 'barba', nombre: 'Arreglo de barba', monto: 5000)],
+          total: 5000,
+          metodoPago: 'efectivo',
+        ),
+        fechaCobro: DateTime.now().subtract(const Duration(days: 6))),
+    _turno('t18', _fmtFecha(DateTime.now().subtract(const Duration(days: 6))),
+        '13:00', 'ana', 'Ana', 'diego', 'Diego Fernández',
+        [_svc('corte', 'Corte de cabello', 30)], EstadoTurno.cancelado),
+    _turno('t19', _fmtFecha(DateTime.now().subtract(const Duration(days: 7))),
+        '15:00', 'marta', 'Marta', 'valen', 'Valentina Cruz',
+        [_svc('peinado', 'Peinado', 45)], EstadoTurno.completado,
+        cobro: const Cobro(
+          lineas: [LineaCobro(servicioId: 'peinado', nombre: 'Peinado', monto: 12000)],
+          total: 12000,
+          metodoPago: 'efectivo',
+        ),
+        fechaCobro: DateTime.now().subtract(const Duration(days: 7))),
+    _turno('t20', _fmtFecha(DateTime.now().subtract(const Duration(days: 7))),
+        '17:30', 'ana', 'Ana', 'lucia', 'Lucía Gómez',
+        [_svc('corte', 'Corte de cabello', 30)], EstadoTurno.completado,
+        cobro: const Cobro(
+          lineas: [LineaCobro(servicioId: 'corte', nombre: 'Corte de cabello', monto: 8000)],
+          total: 7000,
+          descuento: 1000,
+          metodoPago: 'efectivo',
+        ),
+        fechaCobro: DateTime.now().subtract(const Duration(days: 7))),
+    _turno('t21', _fmtFecha(DateTime.now().subtract(const Duration(days: 8))),
+        '19:00', 'marta', 'Marta', 'sofia', 'Sofía Ramírez',
+        [_svc('manicura', 'Manicura', 40)], EstadoTurno.completado,
+        cobro: const Cobro(
+          lineas: [LineaCobro(servicioId: 'manicura', nombre: 'Manicura', monto: 9000)],
+          total: 9000,
+          metodoPago: 'efectivo',
+        ),
+        fechaCobro: DateTime.now().subtract(const Duration(days: 8))),
+    _turno('t22', _fmtFecha(DateTime.now().subtract(const Duration(days: 8))),
+        '09:00', 'ana', 'Ana', 'diego', 'Diego Fernández',
+        [_svc('peinado', 'Peinado', 45)], EstadoTurno.completado,
+        cobro: const Cobro(
+          lineas: [LineaCobro(servicioId: 'peinado', nombre: 'Peinado', monto: 12500)],
+          total: 12500,
+          metodoPago: 'tarjeta',
+        ),
+        fechaCobro: DateTime.now().subtract(const Duration(days: 8))),
+    _turno('t23', _fmtFecha(DateTime.now().subtract(const Duration(days: 8))),
+        '10:30', 'marta', 'Marta', 'valen', 'Valentina Cruz',
+        [_svc('corte', 'Corte de cabello', 30), _svc('barba', 'Arreglo de barba', 20)],
+        EstadoTurno.completado,
+        cobro: const Cobro(
+          lineas: [
+            LineaCobro(servicioId: 'corte', nombre: 'Corte de cabello', monto: 8000),
+            LineaCobro(servicioId: 'barba', nombre: 'Arreglo de barba', monto: 5000),
+          ],
+          total: 12000,
+          descuento: 1000,
+          metodoPago: 'efectivo',
+        ),
+        fechaCobro: DateTime.now().subtract(const Duration(days: 8))),
+    _turno('t24', _fmtFecha(DateTime.now().subtract(const Duration(days: 9))),
+        '13:00', 'ana', 'Ana', 'lucia', 'Lucía Gómez',
+        [_svc('corte', 'Corte de cabello', 30)], EstadoTurno.completado,
+        cobro: const Cobro(
+          lineas: [LineaCobro(servicioId: 'corte', nombre: 'Corte de cabello', monto: 8000)],
+          total: 8000,
+          metodoPago: 'efectivo',
+        ),
+        fechaCobro: DateTime.now().subtract(const Duration(days: 9))),
+    _turno('t25', _fmtFecha(DateTime.now().subtract(const Duration(days: 9))),
+        '15:00', 'marta', 'Marta', 'sofia', 'Sofía Ramírez',
+        [_svc('tinte', 'Tinte / Color', 90)], EstadoTurno.completado,
+        cobro: const Cobro(
+          lineas: [LineaCobro(servicioId: 'tinte', nombre: 'Tinte / Color', monto: 25000)],
+          total: 25000,
+          metodoPago: 'efectivo',
+        ),
+        fechaCobro: DateTime.now().subtract(const Duration(days: 9))),
   ];
   for (final t in turnos) {
     batch.set(db.collection('turnos').doc(t.id), t.toMap());
   }
 
   await batch.commit();
+
+  // ── Phase 1: Multi-tenant migration ───────────────────────────────────────
+  // Migrate root collections to tenant-scoped structure.
+  await _migrateToMultiTenant(db);
+}
+
+/// Per multi-tenant plan Phase 1: Migrate existing root collections to
+/// tenant-scoped structure (`tenants/tenant_0/{collection}`).
+///
+/// Idempotent: if `tenants/tenant_0` already exists, skips migration.
+/// This allows safe re-runs after partial migrations or app reloads.
+///
+/// Steps:
+/// 1. Check if `tenants/tenant_0` exists; if so, skip.
+/// 2. Create `tenants/tenant_0` with branding defaults and owner email.
+/// 3. Move root collections (config, servicios, trabajadores, clientes, turnos)
+///    to `tenants/tenant_0/{collection}`.
+/// 4. Add `tenant_id: "tenant_0"` to all `usuarios/{uid}` docs.
+/// 5. Promote the 'dueno' user to `role: "super_admin"`.
+Future<void> _migrateToMultiTenant(FirebaseFirestore db) async {
+  const tenantId = 'tenant_0';
+  final tenantRef = db.collection('tenants').doc(tenantId);
+
+  // Check if tenant already exists (idempotence guard).
+  final tenantSnap = await tenantRef.get();
+  if (tenantSnap.exists) {
+    debugPrint('[Tenant Migration] tenant_0 already exists, skipping migration.');
+    return;
+  }
+
+  debugPrint('[Tenant Migration] Starting migration to multi-tenant structure...');
+
+  // Find the owner email: look for 'dueno' in usuarios collection.
+  String ownerEmail = 'demo@salon.test';
+  try {
+    final usuariosSnap = await db.collection('usuarios').get();
+    for (final doc in usuariosSnap.docs) {
+      final data = doc.data();
+      if (data['trabajador_id'] == 'dueno') {
+        ownerEmail = data['email'] as String? ?? 'demo@salon.test';
+        break;
+      }
+    }
+  } catch (e) {
+    debugPrint('[Tenant Migration] Warning: Could not fetch usuarios: $e');
+  }
+
+  // Create tenants/tenant_0 with branding defaults.
+  final tenant = Tenant(
+    id: tenantId,
+    name: 'Salón Demo',
+    estado: 'activo',
+    branding: const Branding(
+      colorPrimary: '#534AB7',
+      colorSecondary: '#B7434A',
+      colorAccent: '#2F8F6B',
+    ),
+    ownerEmail: ownerEmail,
+    createdAt: DateTime.now(),
+  );
+  await tenantRef.set(tenant.toMap());
+  debugPrint('[Tenant Migration] Created tenants/$tenantId with branding.');
+
+  // Batch 1: Migrate root collections to tenant subcollections.
+  final batch1 = db.batch();
+  try {
+    // Migrate config/salon to tenants/tenant_0/config/salon
+    final configSnap = await db.collection('config').doc('salon').get();
+    if (configSnap.exists) {
+      batch1.set(
+        tenantRef.collection('config').doc('salon'),
+        configSnap.data()!,
+      );
+    }
+
+    // Migrate servicios
+    final serviciosSnap = await db.collection('servicios').get();
+    for (final doc in serviciosSnap.docs) {
+      batch1.set(
+        tenantRef.collection('servicios').doc(doc.id),
+        doc.data(),
+      );
+    }
+
+    // Migrate trabajadores
+    final trabajadoresSnap = await db.collection('trabajadores').get();
+    for (final doc in trabajadoresSnap.docs) {
+      batch1.set(
+        tenantRef.collection('trabajadores').doc(doc.id),
+        doc.data(),
+      );
+    }
+
+    // Migrate clientes
+    final clientesSnap = await db.collection('clientes').get();
+    for (final doc in clientesSnap.docs) {
+      batch1.set(
+        tenantRef.collection('clientes').doc(doc.id),
+        doc.data(),
+      );
+    }
+
+    // Migrate turnos
+    final turnosSnap = await db.collection('turnos').get();
+    for (final doc in turnosSnap.docs) {
+      batch1.set(
+        tenantRef.collection('turnos').doc(doc.id),
+        doc.data(),
+      );
+    }
+
+    await batch1.commit();
+    debugPrint(
+        '[Tenant Migration] Migrated config, servicios, trabajadores, clientes, turnos.');
+  } catch (e) {
+    debugPrint('[Tenant Migration] Error during collections migration: $e');
+  }
+
+  // Batch 2: Update usuarios with tenant_id and promote dueno to super_admin.
+  final batch2 = db.batch();
+  try {
+    final usuariosSnap = await db.collection('usuarios').get();
+    for (final doc in usuariosSnap.docs) {
+      final data = Map<String, dynamic>.from(doc.data());
+      data['tenant_id'] = tenantId;
+
+      // Promote dueno to super_admin (keep working_role as dueno for backward compat).
+      if (data['trabajador_id'] == 'dueno') {
+        data['role'] = 'super_admin';
+      }
+
+      batch2.update(doc.reference, data);
+    }
+
+    await batch2.commit();
+    debugPrint('[Tenant Migration] Updated usuarios with tenant_id and promoted dueno.');
+  } catch (e) {
+    debugPrint('[Tenant Migration] Error updating usuarios: $e');
+  }
+
+  debugPrint('[Tenant Migration] Multi-tenant migration complete.');
 }
 
 /// Siembra cuentas de Auth (emulador) + docs `usuarios/{uid}` para los roles
