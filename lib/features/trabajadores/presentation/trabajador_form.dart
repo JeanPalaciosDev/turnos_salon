@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/util/colores.dart';
-import '../data/trabajadores_repository.dart';
+import '../../../shared/providers/tenant_providers.dart';
+import '../application/trabajadores_providers.dart';
 import '../domain/trabajador.dart';
 
 /// Abre el formulario de datos básicos del trabajador (alta o edición).
@@ -61,15 +62,28 @@ class _TrabajadorFormState extends ConsumerState<TrabajadorForm> {
       horario: t?.horario ?? const [],
     );
 
+    // Obtener el tenant_id actual
+    final tenantId = ref.read(currentTenantIdProvider).value;
+    if (tenantId == null || tenantId.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Error: Tenant no disponible')),
+        );
+      }
+      return;
+    }
+
     final messenger = ScaffoldMessenger.of(context);
     ref
-        .read(trabajadoresRepositoryProvider)
+        .read(trabajadoresRepositoryProvider(tenantId))
         .upsert(trabajador)
         .catchError((Object e) {
       messenger.showSnackBar(SnackBar(content: Text('Error al guardar: $e')));
       return trabajador.id;
     });
-    Navigator.of(context).pop();
+    if (mounted) {
+      Navigator.of(context).pop();
+    }
   }
 
   @override

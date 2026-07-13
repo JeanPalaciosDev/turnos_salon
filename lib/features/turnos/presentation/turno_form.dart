@@ -3,13 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/util/colores.dart';
 import '../../../core/util/horas.dart';
+import '../../../shared/providers/tenant_providers.dart';
 import '../../auth/application/auth_providers.dart';
-import '../../clientes/data/clientes_repository.dart';
+import '../../clientes/application/clientes_providers.dart';
 import '../../clientes/presentation/cliente_form.dart';
-import '../../servicios/data/servicios_repository.dart';
+import '../../servicios/application/servicios_providers.dart';
 import '../../servicios/domain/servicio.dart';
-import '../../trabajadores/data/trabajadores_repository.dart';
-import '../data/turnos_repository.dart';
+import '../../trabajadores/application/trabajadores_providers.dart';
+import '../application/turno_providers.dart';
 import '../domain/turno.dart';
 
 /// Abre el formulario de alta/edición de turno.
@@ -155,12 +156,24 @@ class _TurnoFormState extends ConsumerState<TurnoForm> {
       createdAt: t?.createdAt,
     );
 
+    // Obtener el tenant_id actual
+    final tenantId = ref.read(currentTenantIdProvider).value;
+    if (tenantId == null || tenantId.isEmpty) {
+      _toast('Error: Tenant no disponible');
+      return;
+    }
+
     final messenger = ScaffoldMessenger.of(context);
-    ref.read(turnosRepositoryProvider).upsert(turno).catchError((Object e) {
+    ref
+        .read(turnosRepositoryProvider(tenantId))
+        .upsert(turno)
+        .catchError((Object e) {
       messenger.showSnackBar(SnackBar(content: Text('Error al guardar: $e')));
       return turno.id;
     });
-    Navigator.of(context).pop();
+    if (mounted) {
+      Navigator.of(context).pop();
+    }
   }
 
   /// Selector de servicios centrado en la búsqueda: los seleccionados se ven

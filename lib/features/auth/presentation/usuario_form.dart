@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../trabajadores/data/trabajadores_repository.dart';
+import '../../trabajadores/application/trabajadores_providers.dart';
 import '../../trabajadores/domain/trabajador.dart';
 import '../data/admin_user_service.dart';
 import '../data/custom_claims_service.dart';

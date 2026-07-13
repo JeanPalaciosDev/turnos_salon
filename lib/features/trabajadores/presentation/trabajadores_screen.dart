@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/tokens.dart';
 import '../../../core/util/colores.dart';
-import '../data/trabajadores_repository.dart';
+import '../application/trabajadores_providers.dart';
 import '../domain/trabajador.dart';
 import 'trabajador_detalle_screen.dart';
 import 'trabajador_form.dart';

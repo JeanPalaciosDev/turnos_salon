@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/util/moneda.dart';
+import '../../../shared/providers/tenant_providers.dart';
 import '../../auth/application/auth_providers.dart';
-import '../data/turnos_repository.dart';
+import '../application/turno_providers.dart';
 import '../domain/turno.dart';
 import 'cerrar_turno_sheet.dart';
 import 'estado_ui.dart';
@@ -33,8 +34,11 @@ class TurnoDetalleSheet extends ConsumerWidget {
     final puedeGestionar = ref.watch(puedeGestionarTurnosProvider);
 
     void setEstado(EstadoTurno estado) {
-      ref.read(turnosRepositoryProvider).updateEstado(t.id, estado);
-      Navigator.of(context).pop();
+      final tenantId = ref.read(currentTenantIdProvider).value;
+      if (tenantId != null && tenantId.isNotEmpty) {
+        ref.read(turnosRepositoryProvider(tenantId)).updateEstado(t.id, estado);
+        Navigator.of(context).pop();
+      }
     }
 
     return Padding(
@@ -167,8 +171,11 @@ class TurnoDetalleSheet extends ConsumerWidget {
       ),
     );
     if (ok == true && context.mounted) {
-      await ref.read(turnosRepositoryProvider).delete(turno.id);
-      if (context.mounted) Navigator.of(context).pop();
+      final tenantId = ref.read(currentTenantIdProvider).value;
+      if (tenantId != null && tenantId.isNotEmpty) {
+        await ref.read(turnosRepositoryProvider(tenantId)).delete(turno.id);
+        if (context.mounted) Navigator.of(context).pop();
+      }
     }
   }
 }

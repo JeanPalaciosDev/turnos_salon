@@ -1,16 +1,20 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/firebase/firestore.dart';
 import '../domain/cliente.dart';
 
-/// Acceso a la colección `clientes`.
+/// Acceso a la colección `clientes` en un tenant específico.
+///
+/// Todas las queries usan la ruta: `tenants/{tenantId}/clientes/{cliente_id}`
+/// para mantener aislamiento de datos multi-tenant.
 class ClientesRepository {
-  ClientesRepository(this._db);
+  ClientesRepository(this._db, this.tenantId);
   final FirebaseFirestore _db;
+  final String tenantId;
 
-  CollectionReference<Map<String, dynamic>> get _col =>
-      _db.collection('clientes');
+  CollectionReference<Map<String, dynamic>> get _col => _db
+      .collection('tenants')
+      .doc(tenantId)
+      .collection('clientes');
 
   Stream<List<Cliente>> watchAll() =>
       _col.orderBy('nombre').snapshots().map((snap) =>
@@ -28,10 +32,5 @@ class ClientesRepository {
   Future<void> delete(String id) => _col.doc(id).delete();
 }
 
-final clientesRepositoryProvider = Provider<ClientesRepository>(
-  (ref) => ClientesRepository(ref.watch(firestoreProvider)),
-);
-
-final clientesStreamProvider = StreamProvider<List<Cliente>>(
-  (ref) => ref.watch(clientesRepositoryProvider).watchAll(),
-);
+// NOTE: Providers moved to lib/features/clientes/application/clientes_providers.dart
+// to allow dependency on currentTenantIdProvider for multi-tenant queries.

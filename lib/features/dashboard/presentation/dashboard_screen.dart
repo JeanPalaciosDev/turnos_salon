@@ -6,7 +6,7 @@ import '../../../app/tokens.dart';
 import '../../../core/util/moneda.dart';
 import '../../admin/application/admin_providers.dart';
 import '../../auth/application/auth_providers.dart';
-import '../../trabajadores/data/trabajadores_repository.dart';
+import '../../trabajadores/application/trabajadores_providers.dart';
 import '../../trabajadores/domain/trabajador.dart';
 import '../application/dashboard_providers.dart';
 import '../domain/dashboard_metrics.dart';

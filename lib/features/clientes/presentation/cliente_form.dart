@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../data/clientes_repository.dart';
+import '../../../shared/providers/tenant_providers.dart';
+import '../application/clientes_providers.dart';
 import '../domain/cliente.dart';
 
 /// Abre el formulario de cliente como hoja inferior (alta o edición).
@@ -54,7 +55,7 @@ class _ClienteFormState extends ConsumerState<ClienteForm> {
     return t.isEmpty ? null : t;
   }
 
-  void _save() {
+  void _save() async {
     if (!_formKey.currentState!.validate()) return;
     final c = widget.cliente;
     final cliente = Cliente(
@@ -66,13 +67,29 @@ class _ClienteFormState extends ConsumerState<ClienteForm> {
       createdAt: c?.createdAt,
     );
 
+    // Obtener el tenant_id actual
+    final tenantId = ref.read(currentTenantIdProvider).value;
+    if (tenantId == null || tenantId.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Error: Tenant no disponible')),
+        );
+      }
+      return;
+    }
+
     // Patrón Firestore offline: no esperar el write para la UI.
     final messenger = ScaffoldMessenger.of(context);
-    ref.read(clientesRepositoryProvider).upsert(cliente).catchError((Object e) {
+    ref
+        .read(clientesRepositoryProvider(tenantId))
+        .upsert(cliente)
+        .catchError((Object e) {
       messenger.showSnackBar(SnackBar(content: Text('Error al guardar: $e')));
       return cliente.id;
     });
-    Navigator.of(context).pop();
+    if (mounted) {
+      Navigator.of(context).pop();
+    }
   }
 
   @override

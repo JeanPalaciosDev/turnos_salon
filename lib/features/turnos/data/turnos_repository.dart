@@ -1,16 +1,20 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/firebase/firestore.dart';
-import '../../../core/util/horas.dart';
 import '../domain/turno.dart';
 
-/// Acceso a la colección `turnos`.
+/// Acceso a la colección `turnos` en un tenant específico.
+///
+/// Todas las queries usan la ruta: `tenants/{tenantId}/turnos/{turno_id}`
+/// para mantener aislamiento de datos multi-tenant.
 class TurnosRepository {
-  TurnosRepository(this._db);
+  TurnosRepository(this._db, this.tenantId);
   final FirebaseFirestore _db;
+  final String tenantId;
 
-  CollectionReference<Map<String, dynamic>> get _col => _db.collection('turnos');
+  CollectionReference<Map<String, dynamic>> get _col => _db
+      .collection('tenants')
+      .doc(tenantId)
+      .collection('turnos');
 
   /// Turnos de un día concreto ('yyyy-MM-dd'), ordenados por hora de inicio.
   ///
@@ -107,25 +111,5 @@ class TurnosRepository {
   Future<void> delete(String id) => _col.doc(id).delete();
 }
 
-final turnosRepositoryProvider = Provider<TurnosRepository>(
-  (ref) => TurnosRepository(ref.watch(firestoreProvider)),
-);
-
-/// Stream de los turnos de un día ('yyyy-MM-dd').
-final turnosPorFechaProvider =
-    StreamProvider.family<List<Turno>, String>((ref, fecha) =>
-        ref.watch(turnosRepositoryProvider).watchByFecha(fecha));
-
-/// Stream del historial de turnos de un cliente (más reciente primero).
-final turnosPorClienteProvider =
-    StreamProvider.family<List<Turno>, String>((ref, clienteId) =>
-        ref.watch(turnosRepositoryProvider).watchByCliente(clienteId));
-
-/// Turnos de la semana cuyo lunes es [lunesFecha] ('yyyy-MM-dd').
-final turnosPorSemanaProvider =
-    StreamProvider.family<List<Turno>, String>((ref, lunesFecha) {
-  final lunes = parseFecha(lunesFecha);
-  final domingo = lunes.add(const Duration(days: 6));
-  return ref.watch(turnosRepositoryProvider)
-      .watchByRango(lunesFecha, fmtFecha(domingo));
-});
+// NOTE: Providers moved to lib/features/turnos/application/turno_providers.dart
+// to allow dependency on currentTenantIdProvider for multi-tenant queries.

@@ -1,17 +1,21 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/firebase/firestore.dart';
 import '../domain/ausencia.dart';
 import '../domain/trabajador.dart';
 
-/// Acceso a la colección `trabajadores` y su subcolección `ausencias`.
+/// Acceso a la colección `trabajadores` en un tenant específico.
+///
+/// Todas las queries usan la ruta: `tenants/{tenantId}/trabajadores/{trabajador_id}`
+/// para mantener aislamiento de datos multi-tenant.
 class TrabajadoresRepository {
-  TrabajadoresRepository(this._db);
+  TrabajadoresRepository(this._db, this.tenantId);
   final FirebaseFirestore _db;
+  final String tenantId;
 
-  CollectionReference<Map<String, dynamic>> get _col =>
-      _db.collection('trabajadores');
+  CollectionReference<Map<String, dynamic>> get _col => _db
+      .collection('tenants')
+      .doc(tenantId)
+      .collection('trabajadores');
 
   Stream<List<Trabajador>> watchAll() =>
       _col.orderBy('nombre').snapshots().map((snap) =>
@@ -50,16 +54,5 @@ class TrabajadoresRepository {
       .delete();
 }
 
-final trabajadoresRepositoryProvider = Provider<TrabajadoresRepository>(
-  (ref) => TrabajadoresRepository(ref.watch(firestoreProvider)),
-);
-
-final trabajadoresStreamProvider = StreamProvider<List<Trabajador>>(
-  (ref) => ref.watch(trabajadoresRepositoryProvider).watchAll(),
-);
-
-/// Stream de las ausencias de un trabajador.
-final ausenciasProvider = StreamProvider.family<List<Ausencia>, String>(
-  (ref, trabajadorId) =>
-      ref.watch(trabajadoresRepositoryProvider).watchAusencias(trabajadorId),
-);
+// NOTE: Providers moved to lib/features/trabajadores/application/trabajadores_providers.dart
+// to allow dependency on currentTenantIdProvider for multi-tenant queries.

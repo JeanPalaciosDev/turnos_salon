@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/tokens.dart';
-import '../data/servicios_repository.dart';
+import '../../../shared/providers/tenant_providers.dart';
+import '../application/servicios_providers.dart';
 import '../domain/servicio.dart';
 import 'servicio_form.dart';
 
@@ -104,7 +105,10 @@ class _ServicioTile extends ConsumerWidget {
       ),
     );
     if (ok == true) {
-      await ref.read(serviciosRepositoryProvider).delete(servicio.id);
+      final tenantId = ref.read(currentTenantIdProvider).value;
+      if (tenantId != null && tenantId.isNotEmpty) {
+        await ref.read(serviciosRepositoryProvider(tenantId)).delete(servicio.id);
+      }
     }
   }
 }

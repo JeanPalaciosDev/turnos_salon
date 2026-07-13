@@ -2,7 +2,8 @@ import 'package:flutter/material.dart' show DateTimeRange;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/util/horas.dart';
-import '../../turnos/data/turnos_repository.dart';
+import '../../../shared/providers/tenant_providers.dart';
+import '../../turnos/application/turno_providers.dart';
 import '../../turnos/domain/turno.dart';
 import '../domain/dashboard_metrics.dart';
 
@@ -56,16 +57,28 @@ final dashboardTrabajadorFiltroProvider =
         DashboardTrabajadorFiltro.new);
 
 /// Turnos del rango filtrado, ya filtrados por trabajador en cliente.
-final dashboardTurnosProvider = StreamProvider<List<Turno>>((ref) {
+final dashboardTurnosProvider = StreamProvider<List<Turno>>((ref) async* {
   final rango = ref.watch(rangoDashboardProvider);
   final desde = fmtFecha(rango.start);
   final hasta = fmtFecha(rango.end);
+
+  // Obtener el tenant_id actual
+  final tenantId = await ref.watch(currentTenantIdProvider.future);
+  if (tenantId == null || tenantId.isEmpty) {
+    yield [];
+    return;
+  }
+
   final stream =
-      ref.watch(turnosRepositoryProvider).watchByRango(desde, hasta);
+      ref.watch(turnosRepositoryProvider(tenantId)).watchByRango(desde, hasta);
   final trabajadorId = ref.watch(dashboardTrabajadorFiltroProvider);
-  if (trabajadorId == null) return stream;
-  return stream.map(
-      (turnos) => turnos.where((t) => t.trabajadorId == trabajadorId).toList());
+
+  if (trabajadorId == null) {
+    yield* stream;
+  } else {
+    yield* stream.map(
+        (turnos) => turnos.where((t) => t.trabajadorId == trabajadorId).toList());
+  }
 });
 
 /// Métricas agregadas del rango/filtro actuales.

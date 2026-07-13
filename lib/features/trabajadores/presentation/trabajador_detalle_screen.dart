@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/util/colores.dart';
-import '../data/trabajadores_repository.dart';
+import '../../../shared/providers/tenant_providers.dart';
+import '../application/trabajadores_providers.dart';
 import '../domain/ausencia.dart';
 import '../domain/trabajador.dart';
 import 'trabajador_form.dart';
@@ -131,9 +132,14 @@ class _Body extends ConsumerWidget {
                       trailing: IconButton(
                         icon: const Icon(Icons.close),
                         tooltip: 'Quitar',
-                        onPressed: () => ref
-                            .read(trabajadoresRepositoryProvider)
-                            .deleteAusencia(t.id, a.id),
+                        onPressed: () {
+                          final tenantId = ref.read(currentTenantIdProvider).value;
+                          if (tenantId != null && tenantId.isNotEmpty) {
+                            ref
+                                .read(trabajadoresRepositoryProvider(tenantId))
+                                .deleteAusencia(t.id, a.id);
+                          }
+                        },
                       ),
                     ),
                 ],
@@ -164,8 +170,11 @@ class _Body extends ConsumerWidget {
       ),
     );
     if (ok == true && context.mounted) {
-      await ref.read(trabajadoresRepositoryProvider).delete(trabajador.id);
-      if (context.mounted) Navigator.of(context).pop();
+      final tenantId = ref.read(currentTenantIdProvider).value;
+      if (tenantId != null && tenantId.isNotEmpty) {
+        await ref.read(trabajadoresRepositoryProvider(tenantId)).delete(trabajador.id);
+        if (context.mounted) Navigator.of(context).pop();
+      }
     }
   }
 
@@ -176,10 +185,13 @@ class _Body extends ConsumerWidget {
     );
     if (franja == null) return;
     final nuevo = [...trabajador.horario, franja];
-    ref
-        .read(trabajadoresRepositoryProvider)
-        .upsert(trabajador.copyWith(horario: nuevo))
-        .catchError((Object _) => trabajador.id);
+    final tenantId = ref.read(currentTenantIdProvider).value;
+    if (tenantId != null && tenantId.isNotEmpty) {
+      ref
+          .read(trabajadoresRepositoryProvider(tenantId))
+          .upsert(trabajador.copyWith(horario: nuevo))
+          .catchError((Object _) => trabajador.id);
+    }
   }
 
   void _removeFranja(WidgetRef ref, List<HorarioLaboral> sorted, int index) {
@@ -191,10 +203,13 @@ class _Body extends ConsumerWidget {
         f.horaFin == franja.horaFin);
     if (pos == -1) return;
     nuevo.removeAt(pos);
-    ref
-        .read(trabajadoresRepositoryProvider)
-        .upsert(trabajador.copyWith(horario: nuevo))
-        .catchError((Object _) => trabajador.id);
+    final tenantId = ref.read(currentTenantIdProvider).value;
+    if (tenantId != null && tenantId.isNotEmpty) {
+      ref
+          .read(trabajadoresRepositoryProvider(tenantId))
+          .upsert(trabajador.copyWith(horario: nuevo))
+          .catchError((Object _) => trabajador.id);
+    }
   }
 
   Future<void> _addAusencia(BuildContext context, WidgetRef ref) async {
@@ -203,7 +218,10 @@ class _Body extends ConsumerWidget {
       builder: (_) => const _AusenciaDialog(),
     );
     if (ausencia == null) return;
-    ref.read(trabajadoresRepositoryProvider).addAusencia(trabajador.id, ausencia);
+    final tenantId = ref.read(currentTenantIdProvider).value;
+    if (tenantId != null && tenantId.isNotEmpty) {
+      ref.read(trabajadoresRepositoryProvider(tenantId)).addAusencia(trabajador.id, ausencia);
+    }
   }
 }
 

@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../data/servicios_repository.dart';
+import '../../../shared/providers/tenant_providers.dart';
+import '../application/servicios_providers.dart';
 import '../domain/servicio.dart';
 
 /// Abre el formulario de servicio como hoja inferior (alta o edición).
@@ -65,16 +66,32 @@ class _ServicioFormState extends ConsumerState<ServicioForm> {
       color: s?.color,
     );
 
+    // Obtener el tenant_id actual
+    final tenantId = ref.read(currentTenantIdProvider).value;
+    if (tenantId == null || tenantId.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Error: Tenant no disponible')),
+        );
+      }
+      return;
+    }
+
     // Firestore con persistencia offline: el cache local + el stream reflejan el
     // cambio al instante. El Future de escritura solo se resuelve con el ACK del
     // servidor, así que NO lo esperamos (dejaría el spinner colgado). Cerramos ya
     // y manejamos un eventual error en segundo plano.
     final messenger = ScaffoldMessenger.of(context);
-    ref.read(serviciosRepositoryProvider).upsert(servicio).catchError((Object e) {
+    ref
+        .read(serviciosRepositoryProvider(tenantId))
+        .upsert(servicio)
+        .catchError((Object e) {
       messenger.showSnackBar(SnackBar(content: Text('Error al guardar: $e')));
       return servicio.id;
     });
-    Navigator.of(context).pop();
+    if (mounted) {
+      Navigator.of(context).pop();
+    }
   }
 
   @override

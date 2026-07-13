@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/util/horas.dart';
 import '../../../core/util/moneda.dart';
 import '../../auth/application/auth_providers.dart';
-import '../../turnos/data/turnos_repository.dart';
+import '../../turnos/application/turno_providers.dart';
 import '../../turnos/domain/turno.dart';
 import '../../turnos/presentation/estado_ui.dart';
 import '../domain/cliente.dart';

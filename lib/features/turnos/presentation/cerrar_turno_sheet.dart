@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/util/moneda.dart';
-import '../../servicios/data/servicios_repository.dart';
-import '../data/turnos_repository.dart';
+import '../../../shared/providers/tenant_providers.dart';
+import '../../servicios/application/servicios_providers.dart';
+import '../application/turno_providers.dart';
 import '../domain/turno.dart';
 
 /// Métodos de pago ofrecidos al cerrar el turno.
@@ -106,9 +107,21 @@ class _CerrarTurnoSheetState extends ConsumerState<CerrarTurnoSheet> {
       notas: _notasCtrl.text.trim().isEmpty ? null : _notasCtrl.text.trim(),
     );
 
+    // Obtener el tenant_id actual
+    final tenantId = ref.read(currentTenantIdProvider).value;
+    if (tenantId == null || tenantId.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Error: Tenant no disponible')),
+      );
+      return;
+    }
+
     setState(() => _guardando = true);
     try {
-      await ref.read(turnosRepositoryProvider).registrarCobro(t.id, cobro);
+      await ref
+          .read(turnosRepositoryProvider(tenantId))
+          .registrarCobro(t.id, cobro);
       if (!mounted) return;
       Navigator.of(context).pop(true);
       ScaffoldMessenger.of(context).showSnackBar(

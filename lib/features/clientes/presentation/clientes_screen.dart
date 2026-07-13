@@ -3,8 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/tokens.dart';
+import '../../../shared/providers/tenant_providers.dart';
 import '../../auth/application/auth_providers.dart';
-import '../data/clientes_repository.dart';
+import '../application/clientes_providers.dart';
 import '../domain/cliente.dart';
 import 'cliente_form.dart';
 
@@ -104,7 +105,10 @@ class _ClienteTile extends ConsumerWidget {
       ),
     );
     if (ok == true) {
-      await ref.read(clientesRepositoryProvider).delete(cliente.id);
+      final tenantId = ref.read(currentTenantIdProvider).value;
+      if (tenantId != null && tenantId.isNotEmpty) {
+        await ref.read(clientesRepositoryProvider(tenantId)).delete(cliente.id);
+      }
     }
   }
 }
