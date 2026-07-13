@@ -6,6 +6,7 @@ import '../features/agenda/presentation/agenda_dia_screen.dart';
 import '../features/agenda/presentation/agenda_semana_screen.dart';
 import '../features/auth/application/auth_providers.dart';
 import '../features/auth/data/auth_repository.dart';
+import '../features/auth/presentation/create_salon_screen.dart';
 import '../features/auth/presentation/login_screen.dart';
 import '../features/auth/presentation/usuarios_screen.dart';
 import '../features/clientes/domain/cliente.dart';
@@ -56,8 +57,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       // listener de authStateChanges, así que no depende del orden de emisión.
       final loggedIn = ref.read(authRepositoryProvider).currentUser != null;
       final yendoALogin = state.matchedLocation == '/login';
-      if (!loggedIn && !yendoALogin) return '/login';
+      final yendoACrearSalon = state.matchedLocation == '/crear-salon';
+      if (!loggedIn && !yendoALogin && !yendoACrearSalon) return '/login';
       if (loggedIn && yendoALogin) return '/agenda';
+      if (loggedIn && yendoACrearSalon) return '/agenda';
       // Guard por rol: rutas admin-only solo para el dueño.
       if (loggedIn &&
           rutasSoloDueno.contains(state.matchedLocation) &&
@@ -78,6 +81,12 @@ final routerProvider = Provider<GoRouter>((ref) {
         name: 'login',
         parentNavigatorKey: _rootNavigatorKey,
         builder: (context, state) => const LoginScreen(),
+      ),
+      GoRoute(
+        path: '/crear-salon',
+        name: 'crear-salon',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const CreateSalonScreen(),
       ),
       // Navegación primaria: barra inferior con 3 ramas (cada una mantiene su
       // propio Navigator → estado por pestaña preservado).

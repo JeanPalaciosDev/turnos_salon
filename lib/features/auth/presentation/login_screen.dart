@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../app/tokens.dart';
 import '../data/auth_repository.dart';
@@ -176,6 +177,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                     CircularProgressIndicator(strokeWidth: 2),
                               )
                             : const Text('Entrar'),
+                      ),
+                      const SizedBox(height: Insets.lg),
+                      Center(
+                        child: TextButton(
+                          onPressed: _cargando ? null : () => context.go('/crear-salon'),
+                          child: const Text('¿Crear nuevo salón?'),
+                        ),
                       ),
                     ],
                   ),

@@ -13,12 +13,23 @@ class MasScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final esDueno = ref.watch(esDuenoProvider);
+    final esSuperAdmin = ref.watch(isSuperAdminProvider);
+
     return Scaffold(
       appBar: AppBar(title: const Text('Más')),
       body: SafeArea(
         child: ListView(
           padding: EdgeInsets.zero,
           children: [
+            // Super-admin: gestión de tenants (salones).
+            if (esSuperAdmin.value ?? false) ...[
+              ListTile(
+                leading: const Icon(Icons.store_outlined),
+                title: const Text('Gestionar salones'),
+                onTap: () => context.goNamed('tenants-admin'),
+              ),
+              const Divider(),
+            ],
             // Servicios, Trabajadores y Usuarios: solo dueño (matriz de
             // permisos §7). Se apilan sobre la barra (root navigator).
             if (esDueno) ...[
@@ -38,11 +49,10 @@ class MasScreen extends ConsumerWidget {
                 onTap: () => context.push('/usuarios'),
               ),
               const Divider(),
-              const ListTile(
-                leading: Icon(Icons.insights_outlined),
-                title: Text('Dashboard'),
-                subtitle: Text('Próximamente'),
-                enabled: false,
+              ListTile(
+                leading: const Icon(Icons.insights_outlined),
+                title: const Text('Dashboard'),
+                onTap: () => context.push('/dashboard'),
               ),
               const Divider(),
             ],
