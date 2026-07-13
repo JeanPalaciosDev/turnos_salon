@@ -1,73 +1,116 @@
 rules_version = '2';
 
 // ┌─────────────────────────────────────────────────────────────────────────┐
-// │ REGLAS ESTRICTAS — ACTIVAS (Fase 2). Ya NO es modo test abierto.          │
-// │ La app tiene Firebase Auth y mapeo usuarios→trabajador+rol. Solo staff    │
-// │ autenticado y ACTIVO puede leer; las escrituras se restringen por rol     │
-// │ según la matriz de permisos del producto.                                 │
+// │ REGLAS MULTI-TENANT (Fase 3). Sistema aislado por tenant_id.              │
 // │                                                                           │
-// │ Fuente única de verdad de reglas: ESTE archivo. (`firestore.rules.fase2`  │
-// │ quedó obsoleto.) Desplegar con:                                           │
+// │ Cada usuario autenticado tiene request.auth.token.tenant_id (Custom      │
+// │ Claims asignado por Firebase Auth Admin SDK en backend). Todas las       │
+// │ lecturas/escrituras verifican que tenant_id del usuario coincida con     │
+// │ el tenant en la ruta: tenants/{tenant_id}/... — previene fuga de datos.  │
+// │                                                                           │
+// │ Super-admin (rol='super_admin'): acceso global a todos los tenants.      │
+// │ Regular users (dueno, recepcion, estilista): restringidos a su           │
+// │ tenant_id solamente. No se permite cambiar de tenant.                    │
+// │                                                                           │
+// │ Referencia: Multi-Tenant Security Plan — Phase 3 de arquitectura.         │
+// │ Desplegar con:                                                            │
 // │   firebase deploy --only firestore:rules                                  │
 // └─────────────────────────────────────────────────────────────────────────┘
+
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ── Helpers de rol ──────────────────────────────────────────────────────
+    // ── Helpers (Phase 3: Multi-tenant) ─────────────────────────────────────
     // Lee el doc usuarios/{uid} del autenticado para resolver rol y estado.
     function usuario() {
       return get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data;
     }
     function signedIn() { return request.auth != null; }
-    function activo() { return signedIn() && usuario().activo == true; }
+    // Phase 3: tenant_id viene del Custom Claims del auth token (backend-set, no-spoofable).
+    function tenantId() { return request.auth.token.tenant_id; }
     function rol() { return usuario().rol; }
+    function activo() { return signedIn() && usuario().activo == true; }
+    // Phase 3: Super-admin tiene acceso global. Regular users se restringen a su tenant.
+    function isSuperAdmin() { return activo() && rol() == 'super_admin'; }
     function esDueno() { return activo() && rol() == 'dueno'; }
     function gestionTurnos() {
       return activo() && (rol() == 'dueno' || rol() == 'recepcion');
     }
+    // Phase 3: Verify user's tenant matches the requested tenant_id.
+    // Previene que un usuario de tenant_1 acceda datos de tenant_0.
+    function userInTenant(tenant_id) {
+      return activo() && tenantId() == tenant_id;
+    }
 
-    // ── Usuarios (cuenta + rol) ─────────────────────────────────────────────
-    // Lectura: todo staff activo (la UI denormaliza nombre/rol). Escritura:
-    // solo dueño (alta/edición de staff in-app). NUNCA `write: if false`.
+    // ── Usuarios (global collection, but filtered by tenant in Dart) ────────
+    // Phase 3: Read restricted to super-admin or own uid.
+    // Write: super-admin only. Regular users in Dart filter by tenant_id
+    // when loading staff lists (tenants/{tenant_id}/usuarios reference).
     match /usuarios/{uid} {
-      allow read: if activo();
-      allow write: if esDueno();
+      allow read: if isSuperAdmin() || (signedIn() && request.auth.uid == uid);
+      allow write: if isSuperAdmin();
     }
 
-    // ── Catálogos (lectura general para que la agenda funcione) ──────────────
-    match /config/{doc}    { allow read: if activo(); allow write: if esDueno(); }
-    match /servicios/{id}  { allow read: if activo(); allow write: if esDueno(); }
-    match /trabajadores/{id} {
-      allow read: if activo();
-      allow write: if esDueno();
-      match /ausencias/{aid} { allow read: if activo(); allow write: if esDueno(); }
-    }
+    // ── Tenants (Phase 3: New collection for multi-tenant) ────────────────
+    // Super-admin: full CRUD on all tenants.
+    // Regular users: can read only their own tenant (userInTenant check).
+    // Write/Delete: super-admin only.
+    match /tenants/{tenant_id} {
+      allow read: if isSuperAdmin() || userInTenant(tenant_id);
+      allow write: if isSuperAdmin();
+      allow delete: if isSuperAdmin();
 
-    // ── Clientes ────────────────────────────────────────────────────────────
-    // Estilista solo lectura; dueño/recepción CRUD.
-    match /clientes/{id} {
-      allow read: if activo();
-      allow write: if gestionTurnos();
-    }
+      // ── Tenant-scoped: config ───────────────────────────────────────────────
+      // Phase 3: Salon configuration (horarios, ajustes). All access checks
+      // request.auth.token.tenant_id == tenant_id (via userInTenant).
+      match /config/{doc} {
+        allow read: if userInTenant(tenant_id);
+        allow write: if userInTenant(tenant_id) && esDueno();
+      }
 
-    // ── Turnos ──────────────────────────────────────────────────────────────
-    // Lectura: todo staff activo (el prefiltro del estilista es a nivel UI).
-    // create/update: dueño/recepción siempre; el estilista puede sobre los
-    // turnos de SU trabajador_id.
-    //   - create: el doc todavía no existe → se valida request.resource.data.
-    //   - update: el doc ya existe → se valida resource.data (el doc previo).
-    // SIMPLIFICACIÓN MVP: no se restringe a nivel de campo (el estilista solo
-    // debería cambiar `estado`). Refinar con request.resource.data.diff() más
-    // adelante para impedir que toque otros campos.
-    match /turnos/{id} {
-      allow read: if activo();
-      allow create: if gestionTurnos()
-        || (activo() && rol() == 'estilista'
-            && request.resource.data.trabajador_id == usuario().trabajador_id);
-      allow update: if gestionTurnos()
-        || (activo() && rol() == 'estilista'
-            && resource.data.trabajador_id == usuario().trabajador_id);
-      allow delete: if gestionTurnos();
+      // ── Tenant-scoped: servicios (catalog) ───────────────────────────────────
+      // Phase 3: Service catalog (haircuts, coloring, etc.). Readable by all
+      // users in tenant; writable by dueño only.
+      match /servicios/{id} {
+        allow read: if userInTenant(tenant_id);
+        allow write: if userInTenant(tenant_id) && esDueno();
+      }
+
+      // ── Tenant-scoped: trabajadores (staff) ───────────────────────────────────
+      // Phase 3: Staff roster (estilistas, recepcionistas) and their schedules.
+      // Readable by all staff in tenant; writable by dueño only.
+      match /trabajadores/{id} {
+        allow read: if userInTenant(tenant_id);
+        allow write: if userInTenant(tenant_id) && esDueno();
+        // Staff absences (vacations, sick leave, etc.)
+        match /ausencias/{aid} {
+          allow read: if userInTenant(tenant_id);
+          allow write: if userInTenant(tenant_id) && esDueno();
+        }
+      }
+
+      // ── Tenant-scoped: clientes (client roster) ────────────────────────────────
+      // Phase 3: Salon's client roster. estilista is read-only
+      // (inherited from gestionTurnos() check below). dueño/recepcion have CRUD.
+      match /clientes/{id} {
+        allow read: if userInTenant(tenant_id);
+        allow write: if userInTenant(tenant_id) && gestionTurnos();
+      }
+
+      // ── Tenant-scoped: turnos (appointments) ──────────────────────────────────
+      // Phase 3: All tenant data in one place. No cross-tenant reads/writes.
+      // Lectura: todo staff activo en el tenant (el prefiltro del estilista es a nivel UI).
+      // create/update: dueño/recepción siempre; estilista solo en turnos de su trabajador_id.
+      match /turnos/{id} {
+        allow read: if userInTenant(tenant_id);
+        allow create: if userInTenant(tenant_id) && (gestionTurnos()
+          || (rol() == 'estilista'
+            && request.resource.data.trabajador_id == usuario().trabajador_id));
+        allow update: if userInTenant(tenant_id) && (gestionTurnos()
+          || (rol() == 'estilista'
+            && resource.data.trabajador_id == usuario().trabajador_id));
+        allow delete: if userInTenant(tenant_id) && gestionTurnos();
+      }
     }
   }
 }
