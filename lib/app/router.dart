@@ -11,9 +11,11 @@ import '../features/auth/presentation/usuarios_screen.dart';
 import '../features/clientes/domain/cliente.dart';
 import '../features/clientes/presentation/cliente_detalle_screen.dart';
 import '../features/clientes/presentation/clientes_screen.dart';
+import '../features/dashboard/presentation/dashboard_screen.dart';
 import '../features/servicios/presentation/servicios_screen.dart';
 import '../features/shell/presentation/app_shell.dart';
 import '../features/shell/presentation/mas_screen.dart';
+import '../features/tenant/presentation/tenants_admin_screen.dart';
 import '../features/trabajadores/presentation/trabajadores_screen.dart';
 import 'go_router_refresh_stream.dart';
 
@@ -25,7 +27,10 @@ import 'go_router_refresh_stream.dart';
 /// diario, detalle de cliente, y los CRUD del dueño) se apilan full-screen
 /// SOBRE la barra usando el `rootNavigatorKey`.
 /// Rutas accesibles solo por el dueño (matriz de permisos §7).
-const rutasSoloDueno = {'/servicios', '/trabajadores', '/usuarios'};
+const rutasSoloDueno = {'/servicios', '/trabajadores', '/usuarios', '/dashboard'};
+
+/// Rutas solo para super-admin (Phase 4: multi-tenant).
+const rutasSoloSuperAdmin = {'/sistema/tenants'};
 
 /// Navigator raíz: las rutas que lo usan como `parentNavigatorKey` se dibujan
 /// por encima de la `NavigationBar` (full-screen).
@@ -57,6 +62,12 @@ final routerProvider = Provider<GoRouter>((ref) {
       if (loggedIn &&
           rutasSoloDueno.contains(state.matchedLocation) &&
           ref.read(esDuenoProvider) == false) {
+        return '/agenda';
+      }
+      // Guard por rol: rutas super-admin-only solo para super_admin (Phase 4).
+      if (loggedIn &&
+          rutasSoloSuperAdmin.contains(state.matchedLocation) &&
+          (ref.read(isSuperAdminProvider).value ?? false) == false) {
         return '/agenda';
       }
       return null;
@@ -129,11 +140,23 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const UsuariosScreen(),
       ),
       GoRoute(
+        path: '/dashboard',
+        name: 'dashboard',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const DashboardScreen(),
+      ),
+      GoRoute(
         path: '/clientes/detalle',
         name: 'cliente-detalle',
         parentNavigatorKey: _rootNavigatorKey,
         builder: (context, state) =>
             ClienteDetalleScreen(cliente: state.extra as Cliente),
+      ),
+      GoRoute(
+        path: '/sistema/tenants',
+        name: 'tenants-admin',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const TenantsAdminScreen(),
       ),
     ],
   );

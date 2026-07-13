@@ -82,8 +82,7 @@ class _UsuarioFormState extends ConsumerState<UsuarioForm> {
                 role: rolToDb(_rol),
               );
         } catch (e) {
-          // Log del error, pero continuamos: los claims se pueden asignar después.
-          print('⚠️ CustomClaimsService.setClaims falló: $e');
+          // Si Custom Claims fallan, abortamos para evitar usuario sin claims.
           rethrow;
         }
       }
@@ -97,7 +96,9 @@ class _UsuarioFormState extends ConsumerState<UsuarioForm> {
         email: _email.text.trim(),
         activo: true,
       );
-      ref.read(usuariosRepositoryProvider).crearUsuario(usuario);
+      ref
+          .read(usuariosRepositoryProvider)
+          .crearUsuario(usuario, tenantId: widget.tenantId);
 
       navigator.pop();
       messenger.showSnackBar(

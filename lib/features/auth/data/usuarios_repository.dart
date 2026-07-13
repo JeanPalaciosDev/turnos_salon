@@ -27,10 +27,27 @@ class UsuariosRepository {
       _col.orderBy('nombre').snapshots().map((snap) =>
           snap.docs.map((d) => Usuario.fromMap(d.id, d.data())).toList());
 
+  /// Observa usuarios de un tenant específico (Phase 4: multi-tenant filtering).
+  ///
+  /// Filtra por tenant_id y ordena alfabéticamente por nombre.
+  /// Usado por administrador de tenant para listar sus usuarios.
+  /// Emite lista vacía si hay error (red, permisos, etc.).
+  Stream<List<Usuario>> watchUsuariosDelTenant(String tenantId) =>
+      _col
+          .where('tenant_id', isEqualTo: tenantId)
+          .orderBy('nombre')
+          .snapshots()
+          .map((snap) =>
+              snap.docs.map((d) => Usuario.fromMap(d.id, d.data())).toList())
+          .handleError((_) => []);
+
   /// Crea/sobrescribe `usuarios/{u.uid}`. Sin await en el llamador de UI
   /// (patrón offline del proyecto). `created_at` con timestamp del servidor.
-  Future<void> crearUsuario(Usuario u) => _col.doc(u.uid).set({
+  ///
+  /// Si [tenantId] está disponible, asigna el tenant_id al usuario.
+  Future<void> crearUsuario(Usuario u, {String? tenantId}) => _col.doc(u.uid).set({
         ...u.toMap(),
+        if (tenantId != null) 'tenant_id': tenantId,
         'created_at': FieldValue.serverTimestamp(),
       });
 
