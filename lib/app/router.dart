@@ -8,6 +8,7 @@ import '../features/agenda/presentation/agenda_dia_screen.dart';
 import '../features/agenda/presentation/agenda_semana_screen.dart';
 import '../features/auth/application/auth_providers.dart';
 import '../features/auth/data/auth_repository.dart';
+import '../features/tenant/application/tenant_providers.dart';
 import '../features/auth/presentation/create_salon_screen.dart';
 import '../features/auth/presentation/login_screen.dart';
 import '../features/auth/presentation/usuarios_screen.dart';
@@ -60,21 +61,60 @@ final routerProvider = Provider<GoRouter>((ref) {
       final loggedIn = ref.read(authRepositoryProvider).currentUser != null;
       final yendoALogin = state.matchedLocation == '/login';
       final yendoACrearSalon = state.matchedLocation == '/crear-salon';
+
+      // Guard 1: Redirigir a login si no hay sesión
       if (!loggedIn && !yendoALogin && !yendoACrearSalon) return '/login';
       if (loggedIn && yendoALogin) return '/agenda';
       if (loggedIn && yendoACrearSalon) return '/agenda';
-      // Guard por rol: rutas admin-only solo para el dueño.
+
+      // Guard 2 (Phase 6): Verificar que tenant_id existe en Custom Claims
+      final tenantId = ref.read(tenantIdProvider).value;
+      if (loggedIn &&
+          !yendoALogin &&
+          !yendoACrearSalon &&
+          tenantId == null) {
+        // Usuario logueado pero sin tenant asignado (edge case: super_admin).
+        // Redirigir a login con error.
+        debugPrint('Usuario sin tenant_id asignado; redirigiendo a login');
+        return '/login';
+      }
+
+      // Guard 3 (Phase 6): Verificar que el tenant está cargado y activo
+      // para rutas protegidas (excepto login/crear-salon).
+      if (loggedIn && !yendoALogin && !yendoACrearSalon && tenantId != null) {
+        final tenantAsync = ref.read(currentTenantProvider);
+
+        // Si el tenant tiene error, redirigir a login
+        if (tenantAsync.hasError) {
+          debugPrint(
+              'Error cargando tenant: ${tenantAsync.error}; redirigiendo a login');
+          return '/login';
+        }
+
+        // Si el tenant cargó y está suspendido, hacer logout
+        if (tenantAsync.value != null &&
+            tenantAsync.value!.estado != 'activo') {
+          debugPrint(
+              'Tenant suspendido (${tenantAsync.value!.estado}); cerrando sesión');
+          ref.read(authRepositoryProvider).signOut();
+          return '/login';
+        }
+      }
+
+      // Guard 4: Guard por rol: rutas admin-only solo para el dueño.
       if (loggedIn &&
           rutasSoloDueno.contains(state.matchedLocation) &&
           ref.read(esDuenoProvider) == false) {
         return '/agenda';
       }
-      // Guard por rol: rutas super-admin-only solo para super_admin (Phase 4).
+
+      // Guard 5: Guard por rol: rutas super-admin-only solo para super_admin (Phase 4).
       if (loggedIn &&
           rutasSoloSuperAdmin.contains(state.matchedLocation) &&
           (ref.read(isSuperAdminProvider).value ?? false) == false) {
         return '/agenda';
       }
+
       return null;
     },
     routes: [

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../app/tokens.dart';
 import '../../tenant/application/tenant_providers.dart';
+import '../application/auth_providers.dart';
 import '../data/auth_repository.dart';
 
 /// Pantalla de inicio de sesión (Fase 2B).
@@ -42,11 +43,29 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       _error = null;
     });
     try {
+      // Phase 5: AuthRepository.signIn() ya verifica que el tenant es válido y está activo.
       await ref.read(authRepositoryProvider).signIn(
             _emailCtrl.text,
             _passwordCtrl.text,
           );
-      // El redirect del router lleva a /agenda; no navegamos manualmente.
+
+      // Post-login: mostrar loading mientras se carga la config del tenant desde Firestore.
+      // El router redirige a /agenda cuando currentTenantProvider está disponible,
+      // pero aquí queremos dar feedback visual (spinner + "Cargando configuración...").
+      if (!mounted) return;
+      setState(() {
+        _cargando = true;
+        _error = null;
+      });
+
+      // Esperar a que currentTenantProvider tenga data.
+      // Esto permite que el LoginScreen muestre un loading específico mientras
+      // se carga la branding y config del tenant.
+      await Future.delayed(const Duration(milliseconds: 500));
+      if (!mounted) return;
+
+      // El redirect del router lleva a /agenda cuando el tenant está cargado.
+      // No navegamos manualmente; confiamos en el Go Router refresh.
     } catch (e) {
       if (!mounted) return;
       setState(() => _error = _mensaje(e));
@@ -72,8 +91,48 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     // después de autenticación, pero en login inicial será null.
     final tenantAsync = ref.watch(currentTenantProvider);
     final tenant = tenantAsync.value;
+    final tenantId = ref.watch(tenantIdProvider).value;
     final salonName = tenant?.name ?? 'Turnos Salón';
     final logoUrl = tenant?.branding.logoUrl;
+    final primaryColor = tenant?.branding.colorPrimary;
+
+    // Si el usuario está cargando (después de login exitoso) y el tenant aún está
+    // resolviendo, mostrar una pantalla de loading.
+    if (_cargando && tenantAsync.isLoading) {
+      return Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(cs.primary),
+              ),
+              const SizedBox(height: Insets.lg),
+              Text(
+                'Cargando configuración de tu salón...',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyMedium,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // Calcular el color del botón a partir de branding si existe
+    Color? buttonColor;
+    if (primaryColor != null) {
+      try {
+        final cleanHex = primaryColor.startsWith('#')
+            ? primaryColor.substring(1)
+            : primaryColor;
+        if (cleanHex.length == 6) {
+          buttonColor = Color(int.parse('0xFF$cleanHex'));
+        }
+      } catch (e) {
+        // Ignorar errores de parseo
+      }
+    }
 
     return Scaffold(
       body: DecoratedBox(
@@ -150,6 +209,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           color: cs.onSurfaceVariant,
                         ),
                       ),
+                      // Debug: mostrar tenant_id en modo desarrollo
+                      if (tenantId != null && !const bool.fromEnvironment('dart.vm.product'))
+                        Padding(
+                          padding: const EdgeInsets.only(top: Insets.sm),
+                          child: Text(
+                            'Tenant: $tenantId',
+                            textAlign: TextAlign.center,
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: cs.onSurfaceVariant,
+                            ),
+                          ),
+                        ),
                       const SizedBox(height: Insets.xl + Insets.sm),
                       TextFormField(
                         controller: _emailCtrl,
@@ -191,6 +262,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       const SizedBox(height: Insets.xl),
                       FilledButton(
                         onPressed: _cargando ? null : _entrar,
+                        style: buttonColor != null
+                            ? FilledButton.styleFrom(
+                                backgroundColor: buttonColor,
+                                foregroundColor: Colors.white,
+                              )
+                            : null,
                         child: _cargando
                             ? const SizedBox(
                                 height: 20,

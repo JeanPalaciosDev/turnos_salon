@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../auth/application/auth_providers.dart';
+import '../../auth/data/auth_repository.dart';
 import '../../tenant/application/tenant_providers.dart';
 
 /// Contenedor de la navegación primaria: muestra la rama activa del
@@ -23,11 +25,78 @@ class AppShell extends ConsumerWidget {
     final tenant = tenantAsync.value;
     final salonName = tenant?.name;
 
+    // Observar usuario actual y su rol
+    final usuarioAsync = ref.watch(usuarioActualProvider);
+    final usuario = usuarioAsync.value;
+    final rol = usuario?.rol;
+
+    // Construir subtítulo con rol del usuario
+    String? subtitulo;
+    if (usuario != null && rol != null) {
+      final rolLabel = _getRolLabel(rol);
+      subtitulo = rol.name == 'dueno' ? 'Dueño' : rolLabel;
+    }
+
     return Scaffold(
       appBar: salonName != null
           ? AppBar(
-              title: Text(salonName),
+              title: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(salonName),
+                  if (subtitulo != null)
+                    Text(
+                      subtitulo,
+                      style: Theme.of(context).textTheme.labelSmall,
+                    ),
+                ],
+              ),
               elevation: 0,
+              actions: [
+                // Botón de logout
+                PopupMenuButton<String>(
+                  icon: const Icon(Icons.more_vert),
+                  onSelected: (value) async {
+                    if (value == 'logout') {
+                      // Mostrar diálogo de confirmación
+                      final confirmed = await showDialog<bool>(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          title: const Text('Cerrar sesión'),
+                          content:
+                              const Text('¿Deseas cerrar la sesión actual?'),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(context, false),
+                              child: const Text('Cancelar'),
+                            ),
+                            FilledButton(
+                              onPressed: () => Navigator.pop(context, true),
+                              child: const Text('Cerrar sesión'),
+                            ),
+                          ],
+                        ),
+                      );
+
+                      if (confirmed == true && context.mounted) {
+                        await ref
+                            .read(authRepositoryProvider)
+                            .signOut();
+                        if (context.mounted) {
+                          context.go('/login');
+                        }
+                      }
+                    }
+                  },
+                  itemBuilder: (context) => [
+                    const PopupMenuItem(
+                      value: 'logout',
+                      child: Text('Cerrar sesión'),
+                    ),
+                  ],
+                ),
+              ],
             )
           : null,
       body: navigationShell,
@@ -60,5 +129,16 @@ class AppShell extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  /// Convierte el rol a una etiqueta legible en español.
+  static String _getRolLabel(dynamic rol) {
+    final rolName = rol.toString().split('.').last;
+    return switch (rolName) {
+      'dueno' => 'Dueño',
+      'recepcion' => 'Recepcionista',
+      'estilista' => 'Estilista',
+      _ => rolName,
+    };
   }
 }

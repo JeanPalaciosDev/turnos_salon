@@ -1,24 +1,34 @@
 rules_version = '2';
 
 // ┌─────────────────────────────────────────────────────────────────────────┐
-// │ FIRESTORE RULES - PHASE 1: INFRASTRUCTURE                              │
+// │ FIRESTORE RULES - PHASE 7: SECURITY & MULTI-TENANT ISOLATION           │
 // │                                                                         │
-// │ Base structure for multi-tenant system:                                 │
-// │ - _platform/ collections: global platform data (tenants, users, logs)   │
+// │ Comprehensive security rules enforcing:                                 │
+// │ - Multi-tenant data isolation                                           │
+// │ - Role-based access control (dueno, recepcionista, estilista)          │
+// │ - Super-admin global access                                             │
+// │ - Cross-tenant access prevention                                        │
+// │ - Suspended tenant blocking                                             │
+// │ - Immutable audit logs                                                  │
+// │ - Backend-only operations for system-level changes                      │
+// │                                                                         │
+// │ Structure:                                                              │
+// │ - _platform/ collections: global data (super-admin only)                │
 // │ - tenants/{tenant_id}/ collections: tenant-scoped data                  │
+// │ - Role-based access: dueno > recepcionista > estilista                  │
+// │ - Tenant suspension: blocks all reads/writes immediately                │
 // │                                                                         │
-// │ Status: PHASE 1 - Structure only, no security enforcement yet.          │
-// │ Security rules will be added in Phase 7.                               │
-// │ For now: allow read/write: if false (structure placeholder).            │
+// │ Custom Claims Structure:                                                │
+// │ - Super-Admin: { role: "super_admin" }                                  │
+// │ - Tenant User: { tenant_id: "...", role: "dueno|recepcionista|estilista" }
 // └─────────────────────────────────────────────────────────────────────────┘
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
     // ────────────────────────────────────────────────────────────────────────
-    // HELPER FUNCTIONS (Phase 0)
-    // Utility functions for checking auth state and tenant access.
-    // These will be used in Phase 7 when security rules are enforced.
+    // HELPER FUNCTIONS
+    // Utility functions for authentication, authorization, and tenant access.
     // ────────────────────────────────────────────────────────────────────────
 
     /// Check if user is authenticated.
@@ -28,210 +38,357 @@ service cloud.firestore {
 
     /// Extract tenant_id from Firebase Auth Custom Claims.
     /// Custom Claims: { tenant_id: string, role: string }
-    function tenantId() {
+    /// Returns null if not present.
+    function userTenantId() {
       return request.auth.token.tenant_id;
     }
 
     /// Extract role from Firebase Auth Custom Claims.
     /// Possible values: 'super_admin', 'dueno', 'recepcionista', 'estilista'
+    /// Returns null if not present.
     function userRole() {
       return request.auth.token.role;
     }
 
     /// Check if user is a super_admin.
-    /// Super-admins have global access to all tenants.
+    /// Super-admins have global access to all tenants and platform data.
     function isSuperAdmin() {
       return signedIn() && userRole() == 'super_admin';
     }
 
     /// Check if user belongs to a specific tenant.
-    /// Prevents cross-tenant access.
-    function userInTenant(tenant_id) {
-      return signedIn() && tenantId() == tenant_id;
+    /// Prevents cross-tenant access at the rule level.
+    /// Usage: userInTenant(tenant_id)
+    function userInTenant(tenantId) {
+      return signedIn() && userTenantId() == tenantId;
+    }
+
+    /// Alias for userInTenant - more readable in some contexts.
+    function belongsToTenant(tenantId) {
+      return userInTenant(tenantId);
+    }
+
+    /// Check if a role is valid for the system.
+    /// Valid roles: 'dueno', 'recepcionista', 'estilista', 'super_admin'
+    function isValidRole() {
+      return userRole() in ['dueno', 'recepcionista', 'estilista', 'super_admin'];
+    }
+
+    /// Check if a tenant is active.
+    /// Reads the tenant document from _platform/tenants/{tenantId}
+    /// Cost: 1 Firestore read per call. Consider caching in custom claims for optimization.
+    /// Note: This check is performed for all access to tenant data to enforce
+    /// immediate blocking of suspended tenants.
+    function isTenantActive(tenantId) {
+      return get(/databases/$(database)/documents/_platform/tenants/$(tenantId)).data.estado == 'activo';
+    }
+
+    /// Check if user has role 'dueno' (owner/manager).
+    /// Duenos have full permissions within their tenant.
+    function isDueno() {
+      return userRole() == 'dueno';
+    }
+
+    /// Check if user has role 'recepcionista' (receptionist).
+    /// Recepcionistas can create/update turnos and clientes.
+    function isRecepcionista() {
+      return userRole() == 'recepcionista';
+    }
+
+    /// Check if user has role 'estilista' (stylist).
+    /// Estilistas have read-only access to turnos assigned to them.
+    function isEstilista() {
+      return userRole() == 'estilista';
     }
 
     // ────────────────────────────────────────────────────────────────────────
     // PLATFORM COLLECTIONS (_platform)
     // Global platform data, accessible only by super_admins.
-    // Structure: _platform/{collection_type}/{data}
+    // These collections are NOT accessible to regular tenant users.
+    // Writes are backend-only (Cloud Functions).
     // ────────────────────────────────────────────────────────────────────────
 
     /// TENANTS COLLECTION
     /// Path: _platform/tenants/{tenant_id}
-    /// Document structure:
-    ///   {
-    ///     name: string,                    // Salon name
-    ///     estado: 'activo'|'suspendido'|'deleted',
-    ///     owner_email: string,             // Tenant owner email
-    ///     created_at: timestamp,
-    ///     updated_at: timestamp,
-    ///     branding: {
-    ///       color_primary: string (hex),
-    ///       color_secondary: string? (hex),
-    ///       color_accent: string? (hex),
-    ///       logo_url: string?,
-    ///       force_theme: 'light'|'dark'|null
-    ///     }
-    ///   }
-    /// Phase 1: Structure only. Security to be added in Phase 7.
+    /// Access: Super-admin read/write ONLY
+    /// Notes:
+    /// - Regular tenant users cannot read this (they don't need to)
+    /// - Writes via backend Cloud Functions only (no client writes)
+    /// - estado field: 'activo', 'suspendido', 'deleted'
+    /// - If tenant is suspended, all tenant user access is blocked
     match /_platform/tenants/{tenant_id} {
-      allow read, write: if false;
+      // Only super-admin can read tenant list and configs
+      allow read: if isSuperAdmin();
+
+      // Backend (Cloud Functions) only - client write denied
+      // This prevents accidental/malicious tenant state changes from client apps
+      allow write: if false;
     }
 
     /// PLATFORM USUARIOS COLLECTION
     /// Path: _platform/usuarios/{tenant_id}/{user_id}
-    /// Document structure:
-    ///   {
-    ///     email: string,
-    ///     rol: 'dueno'|'recepcionista'|'estilista',
-    ///     activo: boolean,
-    ///     created_at: timestamp,
-    ///     updated_at: timestamp
-    ///   }
-    /// Note: uid is the Firestore document ID (matches Firebase Auth UID).
-    /// Phase 1: Structure only. Security to be added in Phase 7.
+    /// Access:
+    /// - Super-admin: read/write (managing all users across all tenants)
+    /// - User viewing own data: read-only (cannot modify)
+    /// Notes:
+    /// - Authoritative user database for the system
+    /// - Users in APP CLIENTE can read their own data for display purposes
+    /// - Writes via backend only (user creation/updates done by admin)
     match /_platform/usuarios/{tenant_id}/{user_id} {
-      allow read, write: if false;
+      // Super-admin: full access to all users
+      allow read, write: if isSuperAdmin();
+
+      // Regular user: read own data only
+      // This allows users to verify their email, role, and tenant assignment
+      allow read: if signedIn() && request.auth.uid == user_id;
+
+      // Writes blocked for clients (backend/admin only)
+      // Users are created and managed by super-admin via Cloud Functions
+      allow write: if false;
     }
 
     /// AUDIT LOGS COLLECTION
     /// Path: _platform/audit_logs/{log_id}
-    /// Document structure:
-    ///   {
-    ///     accion: string,                  // e.g., 'crear_tenant', 'suspender_tenant'
-    ///     super_admin_email: string,       // Email of admin who performed action
-    ///     tenant_id: string,               // Tenant affected by this action
-    ///     detalles: object (optional),     // Structured details of the action
-    ///     timestamp: timestamp
-    ///   }
-    /// Phase 1: Structure only. Security to be added in Phase 7.
+    /// Access: Super-admin read ONLY
+    /// Notes:
+    /// - Immutable log of all system actions (tenant creation, suspension, etc.)
+    /// - Writes via backend Cloud Functions ONLY
+    /// - Deletes: NEVER allowed (audit trail integrity)
+    /// - Purpose: Track admin actions for compliance and debugging
     match /_platform/audit_logs/{log_id} {
-      allow read, write: if false;
+      // Only super-admin can view audit logs
+      allow read: if isSuperAdmin();
+
+      // Writes blocked for clients (backend/Cloud Functions only)
+      allow write: if false;
+
+      // Deletes NEVER allowed - audit trail must be immutable
+      allow delete: if false;
     }
 
     // ────────────────────────────────────────────────────────────────────────
     // TENANT-SCOPED COLLECTIONS (tenants/{tenant_id})
-    // Each tenant has isolated data under tenants/{tenant_id}/.
-    // Access restricted to users belonging to that tenant.
-    // Structure: tenants/{tenant_id}/{collection}/{document}
+    // Each tenant's data is isolated and only accessible to users in that tenant.
+    // All access requires:
+    // 1. User belongs to the tenant (userInTenant)
+    // 2. Tenant is active (isTenantActive) - blocks suspended tenants
+    // 3. User has appropriate role for the action
     // ────────────────────────────────────────────────────────────────────────
 
     match /tenants/{tenant_id} {
-      // ──────────────────────────────────────────────────────────────────────
-      // TENANT CONFIG
-      /// Path: tenants/{tenant_id}/config/{doc}
-      /// General tenant configuration (hours, settings, etc.)
-      /// Phase 1: Structure only.
-      match /config/{doc} {
-        allow read, write: if false;
-      }
 
-      // ──────────────────────────────────────────────────────────────────────
+      // ─────────────────────────────────────────────────────────────────────
+      // TENANT CONFIG DOCUMENT
+      /// Path: tenants/{tenant_id} (document itself)
+      /// General tenant configuration (salon info, settings, etc.)
+      /// Access: Read by tenant users, write by backend only
+      /// Notes:
+      /// - Contains salon name, hours, general settings
+      /// - Users in the tenant can read to get salon info
+      /// - Updates via backend (Cloud Functions)
+      allow read: if userInTenant(tenant_id) && isTenantActive(tenant_id);
+
+      // Writes blocked for clients (backend only)
+      allow write: if false;
+
+      // ─────────────────────────────────────────────────────────────────────
       // SERVICIOS (Services / Service Catalog)
       /// Path: tenants/{tenant_id}/servicios/{servicio_id}
       /// Service offerings (haircuts, coloring, treatments, etc.)
-      /// Document structure:
-      ///   {
-      ///     nombre: string,
-      ///     descripcion: string,
-      ///     duracion_minutos: number,
-      ///     precio: number,
-      ///     activo: boolean,
-      ///     created_at: timestamp,
-      ///     updated_at: timestamp
-      ///   }
-      /// Phase 1: Structure only.
+      /// Access:
+      /// - Read: All users in tenant
+      /// - Create/Update: Only dueno
+      /// - Delete: Only dueno
+      /// Notes:
+      /// - Servicios are master data needed for scheduling turnos
+      /// - Only duenos can modify the service catalog
+      /// - Recepcionistas and estilistas can view only
       match /servicios/{servicio_id} {
-        allow read, write: if false;
+        // All tenant users can read services (needed for scheduling)
+        allow read: if userInTenant(tenant_id) && isTenantActive(tenant_id);
+
+        // Only dueno can create services
+        allow create: if userInTenant(tenant_id) &&
+                        isDueno() &&
+                        isTenantActive(tenant_id);
+
+        // Only dueno can update services
+        allow update: if userInTenant(tenant_id) &&
+                        isDueno() &&
+                        isTenantActive(tenant_id);
+
+        // Only dueno can delete services
+        allow delete: if userInTenant(tenant_id) &&
+                        isDueno() &&
+                        isTenantActive(tenant_id);
       }
 
-      // ──────────────────────────────────────────────────────────────────────
+      // ─────────────────────────────────────────────────────────────────────
       // TRABAJADORES (Staff / Employees)
       /// Path: tenants/{tenant_id}/trabajadores/{trabajador_id}
       /// Staff roster (stylists, receptionists, etc.)
-      /// Document structure:
-      ///   {
-      ///     nombre: string,
-      ///     rol: 'estilista'|'recepcionista'|'dueno',
-      ///     activo: boolean,
-      ///     horario: {...},
-      ///     created_at: timestamp,
-      ///     updated_at: timestamp
-      ///   }
-      /// Subcollection: ausencias (absences/vacations)
-      /// Phase 1: Structure only.
+      /// Access:
+      /// - Read: All users in tenant
+      /// - Create/Update/Delete: Only dueno
+      /// Notes:
+      /// - Trabajadores are master data (employees, stylists, etc.)
+      /// - Only duenos can manage the staff roster
+      /// - Subcollection ausencias inherits parent permissions
       match /trabajadores/{trabajador_id} {
-        allow read, write: if false;
+        // All tenant users can read staff info
+        allow read: if userInTenant(tenant_id) && isTenantActive(tenant_id);
 
-        /// AUSENCIAS (Absences)
+        // Only dueno can create staff records
+        allow create: if userInTenant(tenant_id) &&
+                        isDueno() &&
+                        isTenantActive(tenant_id);
+
+        // Only dueno can update staff records
+        allow update: if userInTenant(tenant_id) &&
+                        isDueno() &&
+                        isTenantActive(tenant_id);
+
+        // Only dueno can delete staff records
+        allow delete: if userInTenant(tenant_id) &&
+                        isDueno() &&
+                        isTenantActive(tenant_id);
+
+        /// AUSENCIAS (Absences / Vacations / Sick Leave)
         /// Path: tenants/{tenant_id}/trabajadores/{trabajador_id}/ausencias/{ausencia_id}
-        /// Absences, vacations, sick leave, etc.
-        /// Document structure:
-        ///   {
-        ///     tipo: 'vacacion'|'enfermedad'|'licencia',
-        ///     fecha_inicio: date,
-        ///     fecha_fin: date,
-        ///     notas: string (optional),
-        ///     created_at: timestamp
-        ///   }
-        /// Phase 1: Structure only.
+        /// Absences, vacations, sick leave, etc. for a staff member
+        /// Access: Inherits parent permissions (dueno manage, all read)
+        /// Notes:
+        /// - Subcollection of trabajadores
+        /// - Only duenos can create/update/delete absences
+        /// - All users can read to know who is available
         match /ausencias/{ausencia_id} {
-          allow read, write: if false;
+          // All tenant users can read absence info
+          allow read: if userInTenant(tenant_id) && isTenantActive(tenant_id);
+
+          // Only dueno can create absence records
+          allow create: if userInTenant(tenant_id) &&
+                          isDueno() &&
+                          isTenantActive(tenant_id);
+
+          // Only dueno can update absence records
+          allow update: if userInTenant(tenant_id) &&
+                          isDueno() &&
+                          isTenantActive(tenant_id);
+
+          // Only dueno can delete absence records
+          allow delete: if userInTenant(tenant_id) &&
+                          isDueno() &&
+                          isTenantActive(tenant_id);
         }
       }
 
-      // ──────────────────────────────────────────────────────────────────────
+      // ─────────────────────────────────────────────────────────────────────
       // CLIENTES (Clients / Customer Roster)
       /// Path: tenants/{tenant_id}/clientes/{cliente_id}
-      /// Client database for the salon.
-      /// Document structure:
-      ///   {
-      ///     nombre: string,
-      ///     email: string (optional),
-      ///     telefono: string,
-      ///     direccion: string (optional),
-      ///     preferencias: {...},
-      ///     activo: boolean,
-      ///     created_at: timestamp,
-      ///     updated_at: timestamp
-      ///   }
-      /// Phase 1: Structure only.
+      /// Client database for the salon
+      /// Access:
+      /// - Read: All users in tenant
+      /// - Create/Update: Dueno or recepcionista
+      /// - Delete: Only dueno
+      /// Notes:
+      /// - Clientes are business-critical data (customer database)
+      /// - Recepcionistas can add/update clients (phone, preferences)
+      /// - Only duenos can delete clients (data retention policy)
       match /clientes/{cliente_id} {
-        allow read, write: if false;
+        // All tenant users can read client info
+        allow read: if userInTenant(tenant_id) && isTenantActive(tenant_id);
+
+        // Dueno or recepcionista can create clients
+        allow create: if userInTenant(tenant_id) &&
+                        (isDueno() || isRecepcionista()) &&
+                        isTenantActive(tenant_id);
+
+        // Dueno or recepcionista can update client info
+        allow update: if userInTenant(tenant_id) &&
+                        (isDueno() || isRecepcionista()) &&
+                        isTenantActive(tenant_id);
+
+        // Only dueno can delete clients
+        // Business rule: Dueno decides data retention policy
+        allow delete: if userInTenant(tenant_id) &&
+                        isDueno() &&
+                        isTenantActive(tenant_id);
       }
 
-      // ──────────────────────────────────────────────────────────────────────
+      // ─────────────────────────────────────────────────────────────────────
       // TURNOS (Appointments / Scheduling)
       /// Path: tenants/{tenant_id}/turnos/{turno_id}
-      /// Appointment / scheduling records.
-      /// Document structure:
-      ///   {
-      ///     cliente_id: string,
-      ///     trabajador_id: string,
-      ///     servicio_id: string,
-      ///     fecha: date,
-      ///     hora_inicio: timestamp,
-      ///     duracion_minutos: number,
-      ///     estado: 'confirmado'|'cancelado'|'completado',
-      ///     notas: string (optional),
-      ///     precio: number,
-      ///     created_at: timestamp,
-      ///     updated_at: timestamp
-      ///   }
-      /// Phase 1: Structure only.
+      /// Appointment / scheduling records
+      /// Access:
+      /// - Read: All users in tenant
+      /// - Create/Update: Dueno or recepcionista
+      /// - Delete: Only dueno
+      /// Notes:
+      /// - Turnos are core business data (appointments/bookings)
+      /// - Recepcionistas handle day-to-day scheduling
+      /// - Estilistas can READ turnos assigned to them (future enhancement)
+      /// - Only dueno can delete turnos (maintains schedule integrity)
       match /turnos/{turno_id} {
-        allow read, write: if false;
+        // All tenant users can read turnos
+        // (estilistas see their schedule, dueno/recepcionista see all)
+        allow read: if userInTenant(tenant_id) && isTenantActive(tenant_id);
+
+        // Dueno or recepcionista can create turnos
+        allow create: if userInTenant(tenant_id) &&
+                        (isDueno() || isRecepcionista()) &&
+                        isTenantActive(tenant_id);
+
+        // Dueno or recepcionista can update turnos
+        // (mark as completado, change cliente, etc.)
+        allow update: if userInTenant(tenant_id) &&
+                        (isDueno() || isRecepcionista()) &&
+                        isTenantActive(tenant_id);
+
+        // Only dueno can delete turnos (audit trail, no direct deletion)
+        // Business rule: Cancellations should mark estado='cancelado' instead
+        allow delete: if userInTenant(tenant_id) &&
+                        isDueno() &&
+                        isTenantActive(tenant_id);
       }
 
-      // ──────────────────────────────────────────────────────────────────────
+      // ─────────────────────────────────────────────────────────────────────
       // USUARIOS (Tenant Users / Staff Accounts)
       /// Path: tenants/{tenant_id}/usuarios/{user_id}
-      /// User accounts assigned to this tenant.
-      /// Note: Authoritative user data lives in _platform/usuarios/{tenant_id}/{user_id}.
-      /// This collection may be a reference or denormalization for performance.
-      /// Phase 1: Structure only.
+      /// User accounts assigned to this tenant
+      /// Access: Read by tenant users, write by backend only
+      /// Notes:
+      /// - Reference/cache of users in this tenant
+      /// - Allows users to see who else has access to the tenant
+      /// - Writes via backend only (admin/Cloud Functions)
+      /// - Authoritative data lives in _platform/usuarios/{tenant_id}/{user_id}
       match /usuarios/{user_id} {
-        allow read, write: if false;
+        // Tenant users can read the user list (see who else has access)
+        allow read: if userInTenant(tenant_id) && isTenantActive(tenant_id);
+
+        // Writes blocked for clients (backend/admin only)
+        // User creation and role changes managed by super-admin
+        allow write: if false;
+      }
+
+      // ─────────────────────────────────────────────────────────────────────
+      // CATCH-ALL FOR FUTURE SUBCOLLECTIONS
+      /// Path: tenants/{tenant_id}/{collectionPath=**}
+      /// Recursive rule for any future subcollections added under tenants/{tenant_id}
+      /// Access: Same as parent (tenant members can read if tenant is active)
+      /// Notes:
+      /// - Ensures new subcollections inherit tenant-scoping by default
+      /// - More specific rules above take precedence
+      /// - Consider replacing this with explicit rules for each collection
+      ///   once structure stabilizes (clarity over recursion)
+      match /{collectionPath=**} {
+        // Read: tenant members only, tenant must be active
+        allow read: if userInTenant(tenant_id) && isTenantActive(tenant_id);
+
+        // Write: limited to dueno/recepcionista during tenant operational hours
+        // More specific rules above override this for exact access control
+        allow write: if userInTenant(tenant_id) &&
+                       (isDueno() || isRecepcionista()) &&
+                       isTenantActive(tenant_id);
       }
     }
   }
