@@ -1,9 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
+import '../../tenant/application/tenant_providers.dart';
 
 /// Contenedor de la navegación primaria: muestra la rama activa del
 /// `StatefulShellRoute.indexedStack` y una `NavigationBar` inferior (M3).
-class AppShell extends StatelessWidget {
+///
+/// Opcionalmente muestra el nombre del salón (tenant) en la AppBar si el
+/// usuario está autenticado y tiene un tenant asignado.
+class AppShell extends ConsumerWidget {
   const AppShell({super.key, required this.navigationShell});
 
   /// Shell provisto por `StatefulShellRoute.indexedStack`. Conserva el estado
@@ -11,8 +17,19 @@ class AppShell extends StatelessWidget {
   final StatefulNavigationShell navigationShell;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Observar tenant actual para mostrar nombre del salón
+    final tenantAsync = ref.watch(currentTenantProvider);
+    final tenant = tenantAsync.value;
+    final salonName = tenant?.name;
+
     return Scaffold(
+      appBar: salonName != null
+          ? AppBar(
+              title: Text(salonName),
+              elevation: 0,
+            )
+          : null,
       body: navigationShell,
       bottomNavigationBar: NavigationBar(
         selectedIndex: navigationShell.currentIndex,

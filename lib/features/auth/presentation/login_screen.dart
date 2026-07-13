@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/tokens.dart';
+import '../../tenant/application/tenant_providers.dart';
 import '../data/auth_repository.dart';
 
 /// Pantalla de inicio de sesión (Fase 2B).
@@ -66,6 +67,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
+
+    // Observar tenant actual: puede estar disponible si usuario viene de deeplink
+    // después de autenticación, pero en login inicial será null.
+    final tenantAsync = ref.watch(currentTenantProvider);
+    final tenant = tenantAsync.value;
+    final salonName = tenant?.name ?? 'Turnos Salón';
+    final logoUrl = tenant?.branding.logoUrl;
+
     return Scaffold(
       body: DecoratedBox(
         // Gradiente sutil derivado del colorScheme: respeta claro/oscuro
@@ -95,8 +104,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      // Encabezado de marca: icono dentro de un contenedor
-                      // redondeado con primaryContainer/onPrimaryContainer.
+                      // Encabezado de marca: logo del tenant si disponible,
+                      // sino icono por defecto dentro de un contenedor redondeado.
                       Center(
                         child: Container(
                           padding: const EdgeInsets.all(Insets.xl),
@@ -105,16 +114,29 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             borderRadius:
                                 BorderRadius.circular(Radii.lg),
                           ),
-                          child: Icon(
-                            Icons.content_cut,
-                            size: 48,
-                            color: cs.onPrimaryContainer,
-                          ),
+                          child: logoUrl != null
+                              ? Image.network(
+                                  logoUrl,
+                                  width: 48,
+                                  height: 48,
+                                  fit: BoxFit.contain,
+                                  errorBuilder: (context, error, stackTrace) =>
+                                      Icon(
+                                    Icons.content_cut,
+                                    size: 48,
+                                    color: cs.onPrimaryContainer,
+                                  ),
+                                )
+                              : Icon(
+                                  Icons.content_cut,
+                                  size: 48,
+                                  color: cs.onPrimaryContainer,
+                                ),
                         ),
                       ),
                       const SizedBox(height: Insets.lg),
                       Text(
-                        'Turnos Salón',
+                        salonName,
                         textAlign: TextAlign.center,
                         style: theme.textTheme.headlineSmall?.copyWith(
                           fontWeight: FontWeight.w600,

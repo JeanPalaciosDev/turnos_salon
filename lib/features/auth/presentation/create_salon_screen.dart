@@ -95,10 +95,11 @@ class _CreateSalonScreenState extends ConsumerState<CreateSalonScreen> {
   }
 
   void _showSnackBar(String message, {required bool isError}) {
+    final theme = Theme.of(context);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: isError ? Colors.red : Colors.green,
+        backgroundColor: isError ? theme.colorScheme.error : theme.colorScheme.tertiary,
         duration: Duration(seconds: isError ? 5 : 2),
       ),
     );
@@ -118,21 +119,23 @@ class _CreateSalonScreenState extends ConsumerState<CreateSalonScreen> {
     final ctrl = TextEditingController(text: _colorCtrl.text);
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Seleccionar color'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Vista previa del color
-            Container(
-              width: 100,
-              height: 100,
-              decoration: BoxDecoration(
-                color: _parseColor(ctrl.text),
-                border: Border.all(color: Colors.grey),
-                borderRadius: BorderRadius.circular(8),
+      builder: (context) {
+        final theme = Theme.of(context);
+        return AlertDialog(
+          title: const Text('Seleccionar color'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Vista previa del color
+              Container(
+                width: 100,
+                height: 100,
+                decoration: BoxDecoration(
+                  color: _parseColor(ctrl.text),
+                  border: Border.all(color: theme.colorScheme.outline),
+                  borderRadius: BorderRadius.circular(8),
+                ),
               ),
-            ),
             const SizedBox(height: Insets.lg),
             // Input de código hexadecimal
             TextField(
@@ -146,22 +149,23 @@ class _CreateSalonScreenState extends ConsumerState<CreateSalonScreen> {
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () {
-              if (_isValidHexColor(ctrl.text)) {
-                setState(() => _colorCtrl.text = ctrl.text);
-                Navigator.pop(context);
-              }
-            },
-            child: const Text('Aceptar'),
-          ),
-        ],
-      ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () {
+                if (_isValidHexColor(ctrl.text)) {
+                  setState(() => _colorCtrl.text = ctrl.text);
+                  Navigator.pop(context);
+                }
+              },
+              child: const Text('Aceptar'),
+            ),
+          ],
+        );
+      },
     );
   }
 

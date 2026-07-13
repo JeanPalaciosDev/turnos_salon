@@ -1,14 +1,26 @@
 import 'package:flutter/material.dart';
 
+import '../features/tenant/domain/tenant.dart';
 import 'tokens.dart';
 
-/// Seed de identidad (violeta de marca).
+/// Branding por defecto cuando no hay tenant (login) o Firestore no disponible.
+///
+/// Usa el color seed original (violeta #534AB7) sin forzar tema.
+const kDefaultBranding = Branding(
+  colorPrimary: '#534AB7', // Material 3 violet
+  colorSecondary: null,
+  colorAccent: null,
+  logoUrl: null,
+  forceTheme: null, // Auto (system preference)
+);
+
+/// Seed de identidad (violeta de marca) - legacy.
 const Color _seed = Color(0xFF534AB7);
 
-/// Tema claro de la app.
+/// Tema claro de la app - legacy (usado en fallback).
 ThemeData buildLightTheme() => _buildTheme(Brightness.light);
 
-/// Tema oscuro de la app.
+/// Tema oscuro de la app - legacy (usado en fallback).
 ThemeData buildDarkTheme() => _buildTheme(Brightness.dark);
 
 /// Construye un [ThemeData] Material 3 a partir del [Brightness].

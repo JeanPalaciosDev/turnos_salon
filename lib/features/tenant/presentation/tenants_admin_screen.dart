@@ -181,11 +181,13 @@ class TenantCard extends StatelessWidget {
   final VoidCallback onDelete;
 
   Color _getEstadoColor(BuildContext context, String estado) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
     return switch (estado) {
-      'activo' => Colors.green,
-      'suspendido' => Colors.orange,
-      'deleted' => Colors.red,
-      _ => Colors.grey,
+      'activo' => cs.tertiary,
+      'suspendido' => cs.tertiary.withValues(alpha: 0.7),
+      'deleted' => cs.error,
+      _ => cs.outlineVariant,
     };
   }
 
@@ -231,7 +233,7 @@ class TenantCard extends StatelessWidget {
                   label: Text(
                     _getEstadoLabel(tenant.estado),
                     style: TextStyle(
-                      color: Colors.white,
+                      color: cs.onTertiary,
                       fontSize: 12,
                     ),
                   ),
