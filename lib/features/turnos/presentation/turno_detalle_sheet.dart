@@ -83,9 +83,6 @@ class TurnoDetalleSheet extends ConsumerWidget {
               runSpacing: 8,
               children: [
                 _EstadoButton(
-                    'Confirmar', () => setEstado(EstadoTurno.confirmado)),
-                _EstadoButton('En curso', () => setEstado(EstadoTurno.enCurso)),
-                _EstadoButton(
                     'Cancelar', () => setEstado(EstadoTurno.cancelado)),
                 _EstadoButton('No vino', () => setEstado(EstadoTurno.noShow)),
               ],
@@ -106,6 +103,23 @@ class TurnoDetalleSheet extends ConsumerWidget {
                 ),
               ),
             ],
+            const Divider(height: 24),
+          ]
+          // Cancelado / No vino son reversibles: si el cliente llega tarde,
+          // se reactiva el turno volviéndolo a pendiente. Completado NO se
+          // revierte aquí (lleva cobro asociado).
+          else if (_esReversible(t.estado)) ...[
+            Text('Cambiar estado',
+                style: Theme.of(context).textTheme.titleSmall),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () => setEstado(EstadoTurno.pendiente),
+                icon: const Icon(Icons.undo),
+                label: const Text('Reactivar turno'),
+              ),
+            ),
             const Divider(height: 24),
           ],
           if (puedeGestionar)
@@ -164,6 +178,12 @@ bool _esTerminal(EstadoTurno e) =>
     e == EstadoTurno.completado ||
     e == EstadoTurno.cancelado ||
     e == EstadoTurno.noShow;
+
+/// Estados terminales que SÍ se pueden deshacer volviendo a `pendiente`
+/// (el cliente canceló o no vino, pero finalmente aparece). `completado` queda
+/// fuera: tiene un cobro asociado que no se revierte desde aquí.
+bool _esReversible(EstadoTurno e) =>
+    e == EstadoTurno.cancelado || e == EstadoTurno.noShow;
 
 /// Resumen del cobro de un turno ya cerrado (líneas + descuento + total).
 class _ResumenCobro extends StatelessWidget {

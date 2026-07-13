@@ -1,23 +1,20 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-/// Estado del turno. El orden refleja el flujo normal; `cancelado` y `noShow`
-/// son ramas terminales.
-enum EstadoTurno { pendiente, confirmado, enCurso, completado, cancelado, noShow }
+/// Estado del turno. `pendiente` es el único estado vivo; `completado` (vía
+/// cobro), `cancelado` y `noShow` son ramas terminales.
+enum EstadoTurno { pendiente, completado, cancelado, noShow }
 
 EstadoTurno estadoFromDb(String? v) => switch (v) {
       'pendiente' => EstadoTurno.pendiente,
-      'confirmado' => EstadoTurno.confirmado,
-      'en_curso' => EstadoTurno.enCurso,
       'completado' => EstadoTurno.completado,
       'cancelado' => EstadoTurno.cancelado,
       'no_show' => EstadoTurno.noShow,
+      // Valores legacy ('confirmado', 'en_curso') o desconocidos → pendiente.
       _ => EstadoTurno.pendiente,
     };
 
 String estadoToDb(EstadoTurno e) => switch (e) {
       EstadoTurno.pendiente => 'pendiente',
-      EstadoTurno.confirmado => 'confirmado',
-      EstadoTurno.enCurso => 'en_curso',
       EstadoTurno.completado => 'completado',
       EstadoTurno.cancelado => 'cancelado',
       EstadoTurno.noShow => 'no_show',

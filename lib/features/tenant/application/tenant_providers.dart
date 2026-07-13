@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../auth/application/auth_providers.dart';
+import '../data/tenant_creation_service.dart';
 import '../data/tenant_repository.dart';
 import '../domain/tenant.dart';
 
@@ -27,4 +28,20 @@ final currentTenantProvider = StreamProvider<Tenant?>((ref) {
 
   // Una vez resuelto el tenant_id, fetch el documento.
   return ref.watch(tenantRepositoryProvider).watchTenant(tenantId);
+});
+
+/// Observa todos los tenants de la plataforma (solo super-admin).
+///
+/// Retorna lista de Tenant ordenados por fecha de creación descendente.
+/// Emite lista vacía si hay error.
+final allTenantsProvider = StreamProvider<List<Tenant>>((ref) {
+  return ref.watch(tenantRepositoryProvider).watchAllTenants();
+});
+
+/// Servicio para crear nuevos tenants vía Cloud Function.
+///
+/// Inyectable para testeo. En producción, llama al endpoint
+/// configurado en [kCloudFunctionCreateTenant].
+final tenantCreationServiceProvider = Provider<TenantCreationService>((ref) {
+  return TenantCreationService();
 });

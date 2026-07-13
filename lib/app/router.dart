@@ -2,6 +2,8 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../features/admin/presentation/audit_log_screen.dart';
+import '../features/admin/presentation/manage_tenant_users_screen.dart';
 import '../features/agenda/presentation/agenda_dia_screen.dart';
 import '../features/agenda/presentation/agenda_semana_screen.dart';
 import '../features/auth/application/auth_providers.dart';
@@ -31,7 +33,7 @@ import 'go_router_refresh_stream.dart';
 const rutasSoloDueno = {'/servicios', '/trabajadores', '/usuarios', '/dashboard'};
 
 /// Rutas solo para super-admin (Phase 4: multi-tenant).
-const rutasSoloSuperAdmin = {'/sistema/tenants'};
+const rutasSoloSuperAdmin = {'/sistema/tenants', '/audit-logs'};
 
 /// Navigator raíz: las rutas que lo usan como `parentNavigatorKey` se dibujan
 /// por encima de la `NavigationBar` (full-screen).
@@ -166,6 +168,34 @@ final routerProvider = Provider<GoRouter>((ref) {
         name: 'tenants-admin',
         parentNavigatorKey: _rootNavigatorKey,
         builder: (context, state) => const TenantsAdminScreen(),
+      ),
+      GoRoute(
+        path: '/audit-logs',
+        name: 'audit-logs',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const AuditLogScreen(),
+      ),
+      GoRoute(
+        path: '/audit-logs/:tenantId',
+        name: 'audit-logs-tenant',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) {
+          final tenantId = state.pathParameters['tenantId'];
+          return AuditLogScreen(tenantId: tenantId);
+        },
+      ),
+      GoRoute(
+        path: '/tenant/:tenantId/usuarios',
+        name: 'manage-tenant-users',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) {
+          final tenantId = state.pathParameters['tenantId']!;
+          final tenantName = state.extra as String? ?? tenantId;
+          return ManageTenantUsersScreen(
+            tenantId: tenantId,
+            tenantName: tenantName,
+          );
+        },
       ),
     ],
   );

@@ -25,6 +25,18 @@ Future<void> main() async {
     await FirebaseAuth.instance.useAuthEmulator(kEmulatorHost, 9099);
   }
 
+  // Auto-recuperación de sesiones rancias. Firebase Auth persiste el refresh
+  // token en el dispositivo entre arranques; si ese token quedó inválido (caso
+  // típico: se cambió de emulador a producción —o al revés— y el token de un
+  // backend no lo reconoce el otro → INVALID_REFRESH_TOKEN), Firestore queda en
+  // UNAUTHENTICATED y la app no escribe nada, sin pista en la UI.
+  //
+  // Forzamos aquí un refresh del token: si falla por token inválido, cerramos
+  // sesión para caer limpio al login en vez de dejar la app muerta. NO cerramos
+  // ante fallos de red (`network-request-failed`): el salón tiene wifi flojo y
+  // la persistencia offline debe seguir sirviendo con la sesión existente.
+  await _descartarSesionRancia();
+
   // Persistencia offline (clave para el wifi flojo del salón). El emulador
   // mantiene su propio estado en memoria, así que la desactivamos ahí para
   // evitar caché local que confunda durante las pruebas.
@@ -47,4 +59,29 @@ Future<void> main() async {
   }
 
   runApp(const ProviderScope(child: TurnosApp()));
+}
+
+/// Valida la sesión persistida al arrancar. Si el refresh token es inválido,
+/// hace `signOut()` para que la app muestre el login en vez de quedar en
+/// UNAUTHENTICATED. Tolera fallos de red (no cierra sesión offline).
+Future<void> _descartarSesionRancia() async {
+  final user = FirebaseAuth.instance.currentUser;
+  if (user == null) return;
+  try {
+    // `true` = forzar refresh contra el backend (no usar el token cacheado).
+    await user.getIdToken(true);
+  } on FirebaseAuthException catch (e) {
+    if (e.code == 'network-request-failed') {
+      // Sin conexión: conservamos la sesión para no romper el modo offline.
+      debugPrint('No se pudo validar la sesión (sin red): se conserva. $e');
+      return;
+    }
+    debugPrint('Sesión rancia (${e.code}): cerrando sesión. $e');
+    await FirebaseAuth.instance.signOut();
+  } catch (e) {
+    // Cualquier otro fallo al refrescar (token revocado, usuario borrado…):
+    // cerramos sesión para arrancar limpio.
+    debugPrint('Sesión inválida: cerrando sesión. $e');
+    await FirebaseAuth.instance.signOut();
+  }
 }

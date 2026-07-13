@@ -6,6 +6,7 @@ import '../../../app/tokens.dart';
 import '../application/tenant_providers.dart';
 import '../data/tenant_repository.dart';
 import '../domain/tenant.dart';
+import '../../admin/presentation/manage_tenant_users_screen.dart';
 
 /// Pantalla de administración de tenants (solo super-admin).
 ///
@@ -21,7 +22,7 @@ class TenantsAdminScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final tenantsAsync = ref.watch(tenantRepositoryProvider).watchAllTenants();
+    final tenantsAsync = ref.watch(allTenantsProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -106,22 +107,13 @@ class TenantsAdminScreen extends ConsumerWidget {
   }
 
   void _showUsersDialog(BuildContext context, Tenant tenant) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Usuarios de ${tenant.name}'),
-        content: const SizedBox(
-          width: double.maxFinite,
-          child: Center(
-            child: Text('Función de usuarios en desarrollo'),
-          ),
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ManageTenantUsersScreen(
+          tenantId: tenant.id,
+          tenantName: tenant.name,
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cerrar'),
-          ),
-        ],
       ),
     );
   }

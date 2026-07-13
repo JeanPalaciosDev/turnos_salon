@@ -615,7 +615,7 @@ class _ResumenDia extends StatelessWidget {
                 Text(
                   fmtMoneda(r.ingresosCobrados),
                   style: theme.textTheme.titleSmall
-                      ?.copyWith(color: estadoColor(EstadoTurno.enCurso)),
+                      ?.copyWith(color: scheme.primary),
                 ),
               ],
             ),

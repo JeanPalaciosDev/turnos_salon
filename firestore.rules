@@ -1,115 +1,237 @@
 rules_version = '2';
 
 // ┌─────────────────────────────────────────────────────────────────────────┐
-// │ REGLAS MULTI-TENANT (Fase 3). Sistema aislado por tenant_id.              │
-// │                                                                           │
-// │ Cada usuario autenticado tiene request.auth.token.tenant_id (Custom      │
-// │ Claims asignado por Firebase Auth Admin SDK en backend). Todas las       │
-// │ lecturas/escrituras verifican que tenant_id del usuario coincida con     │
-// │ el tenant en la ruta: tenants/{tenant_id}/... — previene fuga de datos.  │
-// │                                                                           │
-// │ Super-admin (rol='super_admin'): acceso global a todos los tenants.      │
-// │ Regular users (dueno, recepcion, estilista): restringidos a su           │
-// │ tenant_id solamente. No se permite cambiar de tenant.                    │
-// │                                                                           │
-// │ Referencia: Multi-Tenant Security Plan — Phase 3 de arquitectura.         │
-// │ Desplegar con:                                                            │
-// │   firebase deploy --only firestore:rules                                  │
+// │ FIRESTORE RULES - PHASE 1: INFRASTRUCTURE                              │
+// │                                                                         │
+// │ Base structure for multi-tenant system:                                 │
+// │ - _platform/ collections: global platform data (tenants, users, logs)   │
+// │ - tenants/{tenant_id}/ collections: tenant-scoped data                  │
+// │                                                                         │
+// │ Status: PHASE 1 - Structure only, no security enforcement yet.          │
+// │ Security rules will be added in Phase 7.                               │
+// │ For now: allow read/write: if false (structure placeholder).            │
 // └─────────────────────────────────────────────────────────────────────────┘
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ── Helpers (Phase 3: Multi-tenant) ─────────────────────────────────────
-    // Lee el doc usuarios/{uid} del autenticado para resolver rol y estado.
-    function usuario() {
-      return get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data;
+    // ────────────────────────────────────────────────────────────────────────
+    // HELPER FUNCTIONS (Phase 0)
+    // Utility functions for checking auth state and tenant access.
+    // These will be used in Phase 7 when security rules are enforced.
+    // ────────────────────────────────────────────────────────────────────────
+
+    /// Check if user is authenticated.
+    function signedIn() {
+      return request.auth != null;
     }
-    function signedIn() { return request.auth != null; }
-    // Phase 3: tenant_id viene del Custom Claims del auth token (backend-set, no-spoofable).
-    function tenantId() { return request.auth.token.tenant_id; }
-    function rol() { return usuario().rol; }
-    function activo() { return signedIn() && usuario().activo == true; }
-    // Phase 3: Super-admin tiene acceso global. Regular users se restringen a su tenant.
-    function isSuperAdmin() { return activo() && rol() == 'super_admin'; }
-    function esDueno() { return activo() && rol() == 'dueno'; }
-    function gestionTurnos() {
-      return activo() && (rol() == 'dueno' || rol() == 'recepcion');
+
+    /// Extract tenant_id from Firebase Auth Custom Claims.
+    /// Custom Claims: { tenant_id: string, role: string }
+    function tenantId() {
+      return request.auth.token.tenant_id;
     }
-    // Phase 3: Verify user's tenant matches the requested tenant_id.
-    // Previene que un usuario de tenant_1 acceda datos de tenant_0.
+
+    /// Extract role from Firebase Auth Custom Claims.
+    /// Possible values: 'super_admin', 'dueno', 'recepcionista', 'estilista'
+    function userRole() {
+      return request.auth.token.role;
+    }
+
+    /// Check if user is a super_admin.
+    /// Super-admins have global access to all tenants.
+    function isSuperAdmin() {
+      return signedIn() && userRole() == 'super_admin';
+    }
+
+    /// Check if user belongs to a specific tenant.
+    /// Prevents cross-tenant access.
     function userInTenant(tenant_id) {
-      return activo() && tenantId() == tenant_id;
+      return signedIn() && tenantId() == tenant_id;
     }
 
-    // ── Usuarios (global collection, but filtered by tenant in Dart) ────────
-    // Phase 3: Read restricted to super-admin or own uid.
-    // Write: super-admin only. Regular users in Dart filter by tenant_id
-    // when loading staff lists (tenants/{tenant_id}/usuarios reference).
-    match /usuarios/{uid} {
-      allow read: if isSuperAdmin() || (signedIn() && request.auth.uid == uid);
-      allow write: if isSuperAdmin();
+    // ────────────────────────────────────────────────────────────────────────
+    // PLATFORM COLLECTIONS (_platform)
+    // Global platform data, accessible only by super_admins.
+    // Structure: _platform/{collection_type}/{data}
+    // ────────────────────────────────────────────────────────────────────────
+
+    /// TENANTS COLLECTION
+    /// Path: _platform/tenants/{tenant_id}
+    /// Document structure:
+    ///   {
+    ///     name: string,                    // Salon name
+    ///     estado: 'activo'|'suspendido'|'deleted',
+    ///     owner_email: string,             // Tenant owner email
+    ///     created_at: timestamp,
+    ///     updated_at: timestamp,
+    ///     branding: {
+    ///       color_primary: string (hex),
+    ///       color_secondary: string? (hex),
+    ///       color_accent: string? (hex),
+    ///       logo_url: string?,
+    ///       force_theme: 'light'|'dark'|null
+    ///     }
+    ///   }
+    /// Phase 1: Structure only. Security to be added in Phase 7.
+    match /_platform/tenants/{tenant_id} {
+      allow read, write: if false;
     }
 
-    // ── Tenants (Phase 3: New collection for multi-tenant) ────────────────
-    // Super-admin: full CRUD on all tenants.
-    // Regular users: can read only their own tenant (userInTenant check).
-    // Write/Delete: super-admin only.
+    /// PLATFORM USUARIOS COLLECTION
+    /// Path: _platform/usuarios/{tenant_id}/{user_id}
+    /// Document structure:
+    ///   {
+    ///     email: string,
+    ///     rol: 'dueno'|'recepcionista'|'estilista',
+    ///     activo: boolean,
+    ///     created_at: timestamp,
+    ///     updated_at: timestamp
+    ///   }
+    /// Note: uid is the Firestore document ID (matches Firebase Auth UID).
+    /// Phase 1: Structure only. Security to be added in Phase 7.
+    match /_platform/usuarios/{tenant_id}/{user_id} {
+      allow read, write: if false;
+    }
+
+    /// AUDIT LOGS COLLECTION
+    /// Path: _platform/audit_logs/{log_id}
+    /// Document structure:
+    ///   {
+    ///     accion: string,                  // e.g., 'crear_tenant', 'suspender_tenant'
+    ///     super_admin_email: string,       // Email of admin who performed action
+    ///     tenant_id: string,               // Tenant affected by this action
+    ///     detalles: object (optional),     // Structured details of the action
+    ///     timestamp: timestamp
+    ///   }
+    /// Phase 1: Structure only. Security to be added in Phase 7.
+    match /_platform/audit_logs/{log_id} {
+      allow read, write: if false;
+    }
+
+    // ────────────────────────────────────────────────────────────────────────
+    // TENANT-SCOPED COLLECTIONS (tenants/{tenant_id})
+    // Each tenant has isolated data under tenants/{tenant_id}/.
+    // Access restricted to users belonging to that tenant.
+    // Structure: tenants/{tenant_id}/{collection}/{document}
+    // ────────────────────────────────────────────────────────────────────────
+
     match /tenants/{tenant_id} {
-      allow read: if isSuperAdmin() || userInTenant(tenant_id);
-      allow write: if isSuperAdmin();
-      allow delete: if isSuperAdmin();
-
-      // ── Tenant-scoped: config ───────────────────────────────────────────────
-      // Phase 3: Salon configuration (horarios, ajustes). All access checks
-      // request.auth.token.tenant_id == tenant_id (via userInTenant).
+      // ──────────────────────────────────────────────────────────────────────
+      // TENANT CONFIG
+      /// Path: tenants/{tenant_id}/config/{doc}
+      /// General tenant configuration (hours, settings, etc.)
+      /// Phase 1: Structure only.
       match /config/{doc} {
-        allow read: if userInTenant(tenant_id);
-        allow write: if userInTenant(tenant_id) && esDueno();
+        allow read, write: if false;
       }
 
-      // ── Tenant-scoped: servicios (catalog) ───────────────────────────────────
-      // Phase 3: Service catalog (haircuts, coloring, etc.). Readable by all
-      // users in tenant; writable by dueño only.
-      match /servicios/{id} {
-        allow read: if userInTenant(tenant_id);
-        allow write: if userInTenant(tenant_id) && esDueno();
+      // ──────────────────────────────────────────────────────────────────────
+      // SERVICIOS (Services / Service Catalog)
+      /// Path: tenants/{tenant_id}/servicios/{servicio_id}
+      /// Service offerings (haircuts, coloring, treatments, etc.)
+      /// Document structure:
+      ///   {
+      ///     nombre: string,
+      ///     descripcion: string,
+      ///     duracion_minutos: number,
+      ///     precio: number,
+      ///     activo: boolean,
+      ///     created_at: timestamp,
+      ///     updated_at: timestamp
+      ///   }
+      /// Phase 1: Structure only.
+      match /servicios/{servicio_id} {
+        allow read, write: if false;
       }
 
-      // ── Tenant-scoped: trabajadores (staff) ───────────────────────────────────
-      // Phase 3: Staff roster (estilistas, recepcionistas) and their schedules.
-      // Readable by all staff in tenant; writable by dueño only.
-      match /trabajadores/{id} {
-        allow read: if userInTenant(tenant_id);
-        allow write: if userInTenant(tenant_id) && esDueno();
-        // Staff absences (vacations, sick leave, etc.)
-        match /ausencias/{aid} {
-          allow read: if userInTenant(tenant_id);
-          allow write: if userInTenant(tenant_id) && esDueno();
+      // ──────────────────────────────────────────────────────────────────────
+      // TRABAJADORES (Staff / Employees)
+      /// Path: tenants/{tenant_id}/trabajadores/{trabajador_id}
+      /// Staff roster (stylists, receptionists, etc.)
+      /// Document structure:
+      ///   {
+      ///     nombre: string,
+      ///     rol: 'estilista'|'recepcionista'|'dueno',
+      ///     activo: boolean,
+      ///     horario: {...},
+      ///     created_at: timestamp,
+      ///     updated_at: timestamp
+      ///   }
+      /// Subcollection: ausencias (absences/vacations)
+      /// Phase 1: Structure only.
+      match /trabajadores/{trabajador_id} {
+        allow read, write: if false;
+
+        /// AUSENCIAS (Absences)
+        /// Path: tenants/{tenant_id}/trabajadores/{trabajador_id}/ausencias/{ausencia_id}
+        /// Absences, vacations, sick leave, etc.
+        /// Document structure:
+        ///   {
+        ///     tipo: 'vacacion'|'enfermedad'|'licencia',
+        ///     fecha_inicio: date,
+        ///     fecha_fin: date,
+        ///     notas: string (optional),
+        ///     created_at: timestamp
+        ///   }
+        /// Phase 1: Structure only.
+        match /ausencias/{ausencia_id} {
+          allow read, write: if false;
         }
       }
 
-      // ── Tenant-scoped: clientes (client roster) ────────────────────────────────
-      // Phase 3: Salon's client roster. estilista is read-only
-      // (inherited from gestionTurnos() check below). dueño/recepcion have CRUD.
-      match /clientes/{id} {
-        allow read: if userInTenant(tenant_id);
-        allow write: if userInTenant(tenant_id) && gestionTurnos();
+      // ──────────────────────────────────────────────────────────────────────
+      // CLIENTES (Clients / Customer Roster)
+      /// Path: tenants/{tenant_id}/clientes/{cliente_id}
+      /// Client database for the salon.
+      /// Document structure:
+      ///   {
+      ///     nombre: string,
+      ///     email: string (optional),
+      ///     telefono: string,
+      ///     direccion: string (optional),
+      ///     preferencias: {...},
+      ///     activo: boolean,
+      ///     created_at: timestamp,
+      ///     updated_at: timestamp
+      ///   }
+      /// Phase 1: Structure only.
+      match /clientes/{cliente_id} {
+        allow read, write: if false;
       }
 
-      // ── Tenant-scoped: turnos (appointments) ──────────────────────────────────
-      // Phase 3: All tenant data in one place. No cross-tenant reads/writes.
-      // Lectura: todo staff activo en el tenant (el prefiltro del estilista es a nivel UI).
-      // create/update: dueño/recepción siempre; estilista solo en turnos de su trabajador_id.
-      match /turnos/{id} {
-        allow read: if userInTenant(tenant_id);
-        allow create: if userInTenant(tenant_id) && (gestionTurnos()
-          || (rol() == 'estilista'
-            && request.resource.data.trabajador_id == usuario().trabajador_id));
-        allow update: if userInTenant(tenant_id) && (gestionTurnos()
-          || (rol() == 'estilista'
-            && resource.data.trabajador_id == usuario().trabajador_id));
-        allow delete: if userInTenant(tenant_id) && gestionTurnos();
+      // ──────────────────────────────────────────────────────────────────────
+      // TURNOS (Appointments / Scheduling)
+      /// Path: tenants/{tenant_id}/turnos/{turno_id}
+      /// Appointment / scheduling records.
+      /// Document structure:
+      ///   {
+      ///     cliente_id: string,
+      ///     trabajador_id: string,
+      ///     servicio_id: string,
+      ///     fecha: date,
+      ///     hora_inicio: timestamp,
+      ///     duracion_minutos: number,
+      ///     estado: 'confirmado'|'cancelado'|'completado',
+      ///     notas: string (optional),
+      ///     precio: number,
+      ///     created_at: timestamp,
+      ///     updated_at: timestamp
+      ///   }
+      /// Phase 1: Structure only.
+      match /turnos/{turno_id} {
+        allow read, write: if false;
+      }
+
+      // ──────────────────────────────────────────────────────────────────────
+      // USUARIOS (Tenant Users / Staff Accounts)
+      /// Path: tenants/{tenant_id}/usuarios/{user_id}
+      /// User accounts assigned to this tenant.
+      /// Note: Authoritative user data lives in _platform/usuarios/{tenant_id}/{user_id}.
+      /// This collection may be a reference or denormalization for performance.
+      /// Phase 1: Structure only.
+      match /usuarios/{user_id} {
+        allow read, write: if false;
       }
     }
   }

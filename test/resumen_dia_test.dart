@@ -37,12 +37,12 @@ void main() {
       final r = ResumenDia.desde([
         _t('09:00', '09:30', estado: EstadoTurno.pendiente),
         _t('10:00', '10:30', estado: EstadoTurno.pendiente),
-        _t('11:00', '11:30', estado: EstadoTurno.enCurso),
+        _t('11:00', '11:30', estado: EstadoTurno.noShow),
         _t('12:00', '12:30', estado: EstadoTurno.completado),
       ], null);
       expect(r.total, 4);
       expect(r.porEstado[EstadoTurno.pendiente], 2);
-      expect(r.porEstado[EstadoTurno.enCurso], 1);
+      expect(r.porEstado[EstadoTurno.noShow], 1);
       expect(r.porEstado[EstadoTurno.completado], 1);
       expect(r.porEstado.containsKey(EstadoTurno.cancelado), isFalse);
     });
@@ -53,8 +53,8 @@ void main() {
         _t('10:00', '10:30', estado: EstadoTurno.completado, cobroTotal: 500),
         // completado sin cobro → no suma
         _t('11:00', '11:30', estado: EstadoTurno.completado),
-        // en curso con cobro → no suma (no está completado)
-        _t('12:00', '12:30', estado: EstadoTurno.enCurso, cobroTotal: 999),
+        // no vino con cobro → no suma (no está completado)
+        _t('12:00', '12:30', estado: EstadoTurno.noShow, cobroTotal: 999),
       ], null);
       expect(r.ingresosCobrados, 1500);
     });
