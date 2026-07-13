@@ -4,23 +4,38 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../trabajadores/data/trabajadores_repository.dart';
 import '../../trabajadores/domain/trabajador.dart';
 import '../data/admin_user_service.dart';
+import '../data/custom_claims_service.dart';
 import '../data/usuarios_repository.dart';
 import '../domain/usuario.dart';
 
 /// Abre el formulario de alta de usuario (staff). Fase 2D.
-Future<void> showUsuarioForm(BuildContext context) {
+///
+/// Parámetro [tenantId]: si se proporciona, se asignan Custom Claims al usuario.
+Future<void> showUsuarioForm(
+  BuildContext context, {
+  String? tenantId,
+}) {
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
     showDragHandle: true,
-    builder: (_) => const UsuarioForm(),
+    builder: (_) => UsuarioForm(tenantId: tenantId),
   );
 }
 
 /// Alta de staff: crea la cuenta Auth (instancia secundaria, sin desloguear al
-/// admin) y luego el doc `usuarios/{uid}`.
+/// admin), asigna Custom Claims (tenant_id y role) y luego crea el doc `usuarios/{uid}`.
+///
+/// Parámetro opcional [tenantId]: si se proporciona, se usan Custom Claims.
+/// Si es null, se omite la asignación de Custom Claims (legacy, sin multi-tenant).
 class UsuarioForm extends ConsumerStatefulWidget {
-  const UsuarioForm({super.key});
+  const UsuarioForm({
+    super.key,
+    this.tenantId,
+  });
+
+  /// ID del tenant. Si es null, no se asignan Custom Claims.
+  final String? tenantId;
 
   @override
   ConsumerState<UsuarioForm> createState() => _UsuarioFormState();
@@ -57,7 +72,23 @@ class _UsuarioFormState extends ConsumerState<UsuarioForm> {
             password: _password.text,
           );
 
-      // 2) Escribir el doc usuarios/{uid} (patrón offline: sin await en UI).
+      // 2) Asignar Custom Claims (tenant_id y role) si está disponible el tenantId.
+      // Fase 2 (multi-tenant): si no hay tenantId, se omite este paso.
+      if (widget.tenantId != null) {
+        try {
+          await ref.read(customClaimsServiceProvider).setClaims(
+                uid: uid,
+                tenantId: widget.tenantId!,
+                role: rolToDb(_rol),
+              );
+        } catch (e) {
+          // Log del error, pero continuamos: los claims se pueden asignar después.
+          print('⚠️ CustomClaimsService.setClaims falló: $e');
+          rethrow;
+        }
+      }
+
+      // 3) Escribir el doc usuarios/{uid} (patrón offline: sin await en UI).
       final usuario = Usuario(
         uid: uid,
         trabajadorId: _trabajadorId ?? '',
