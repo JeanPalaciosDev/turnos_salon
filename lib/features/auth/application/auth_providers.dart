@@ -21,22 +21,6 @@ final usuarioActualProvider = StreamProvider<Usuario?>((ref) {
   return ref.watch(usuariosRepositoryProvider).watchUsuario(user.uid);
 });
 
-/// Rol del usuario actual (sincrónico); null mientras carga o sin sesión.
-final rolActualProvider = Provider<RolTrabajador?>(
-  (ref) => ref.watch(usuarioActualProvider).value?.rol,
-);
-
-/// True si el usuario actual es dueño.
-final esDuenoProvider = Provider<bool>(
-  (ref) => ref.watch(rolActualProvider) == RolTrabajador.dueno,
-);
-
-/// True si el usuario actual puede gestionar turnos (dueño o recepción).
-final puedeGestionarTurnosProvider = Provider<bool>((ref) {
-  final rol = ref.watch(rolActualProvider);
-  return rol == RolTrabajador.dueno || rol == RolTrabajador.recepcion;
-});
-
 /// tenant_id del usuario actual (desde Custom Claims).
 ///
 /// Observa [authStateProvider] y extrae el tenant_id de los claims del token ID.
@@ -58,24 +42,4 @@ final tenantIdProvider = StreamProvider<String?>((ref) {
     if (claims == null) return null;
     return claims['tenant_id'] as String?;
   }).handleError((_) => null);
-});
-
-/// True si el usuario actual es super_admin (desde Custom Claims).
-///
-/// Verifica que el usuario tenga role == 'super_admin' en los Custom Claims.
-/// Emite false si no hay sesión o si el rol no coincide, o mientras carga.
-/// El .value está disponible para lecturas sincrónicas en el router.
-final isSuperAdminProvider = StreamProvider<bool>((ref) {
-  final user = ref.watch(authStateProvider).value;
-  if (user == null) {
-    return Stream<bool>.value(false);
-  }
-
-  return Stream.fromFuture(
-    user.getIdTokenResult(),
-  ).map((idToken) {
-    final claims = idToken.claims;
-    if (claims == null) return false;
-    return (claims['role'] as String?) == 'super_admin';
-  }).handleError((_) => false);
 });
