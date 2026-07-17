@@ -15,8 +15,7 @@ if (!admin.apps.length) {
  * Request body:
  * {
  *   "uid": "user_uid_here",
- *   "tenant_id": "tenant_001",
- *   "role": "dueno" | "recepcionista" | "estilista"
+ *   "tenant_id": "tenant_001"
  * }
  *
  * Response:
@@ -56,20 +55,11 @@ const setUserClaims = functions.https.onRequest(async (request, response) => {
     const { uid, tenant_id, role } = request.body;
 
     // Validate required fields
-    if (!uid || !tenant_id || !role) {
+    if (!uid || !tenant_id) {
       return response.status(400).json({
         success: false,
         error:
-          'Missing required fields: uid, tenant_id, role',
-      });
-    }
-
-    // Validate role
-    const validRoles = ['dueno', 'recepcionista', 'estilista'];
-    if (!validRoles.includes(role)) {
-      return response.status(400).json({
-        success: false,
-        error: `Invalid role. Must be one of: ${validRoles.join(', ')}`,
+          'Missing required fields: uid, tenant_id',
       });
     }
 
@@ -104,7 +94,6 @@ const setUserClaims = functions.https.onRequest(async (request, response) => {
     // Set custom claims on user
     const customClaims = {
       tenant_id,
-      role,
     };
 
     await admin.auth().setCustomUserClaims(uid, customClaims);
