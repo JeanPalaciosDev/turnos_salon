@@ -50,12 +50,6 @@ service cloud.firestore {
       return request.auth.token.role;
     }
 
-    /// Check if user is a super_admin.
-    /// Super-admins have global access to all tenants and platform data.
-    function isSuperAdmin() {
-      return signedIn() && userRole() == 'super_admin';
-    }
-
     /// Check if user belongs to a specific tenant.
     /// Prevents cross-tenant access at the rule level.
     /// Usage: userInTenant(tenant_id)
@@ -68,12 +62,6 @@ service cloud.firestore {
       return userInTenant(tenantId);
     }
 
-    /// Check if a role is valid for the system.
-    /// Valid roles: 'dueno', 'recepcionista', 'estilista', 'super_admin'
-    function isValidRole() {
-      return userRole() in ['dueno', 'recepcionista', 'estilista', 'super_admin'];
-    }
-
     /// Check if a tenant is active.
     /// Reads the tenant document from _platform/tenants/{tenantId}
     /// Cost: 1 Firestore read per call. Consider caching in custom claims for optimization.
@@ -81,24 +69,6 @@ service cloud.firestore {
     /// immediate blocking of suspended tenants.
     function isTenantActive(tenantId) {
       return get(/databases/$(database)/documents/_platform/tenants/$(tenantId)).data.estado == 'activo';
-    }
-
-    /// Check if user has role 'dueno' (owner/manager).
-    /// Duenos have full permissions within their tenant.
-    function isDueno() {
-      return userRole() == 'dueno';
-    }
-
-    /// Check if user has role 'recepcionista' (receptionist).
-    /// Recepcionistas can create/update turnos and clientes.
-    function isRecepcionista() {
-      return userRole() == 'recepcionista';
-    }
-
-    /// Check if user has role 'estilista' (stylist).
-    /// Estilistas have read-only access to turnos assigned to them.
-    function isEstilista() {
-      return userRole() == 'estilista';
     }
 
     // ────────────────────────────────────────────────────────────────────────
@@ -118,7 +88,7 @@ service cloud.firestore {
     /// - If tenant is suspended, all tenant user access is blocked
     match /_platform/tenants/{tenant_id} {
       // Only super-admin can read tenant list and configs
-      allow read: if isSuperAdmin();
+      allow read: if signedIn() && userRole() == 'super_admin';
 
       // Backend (Cloud Functions) only - client write denied
       // This prevents accidental/malicious tenant state changes from client apps
@@ -136,7 +106,7 @@ service cloud.firestore {
     /// - Writes via backend only (user creation/updates done by admin)
     match /_platform/usuarios/{tenant_id}/{user_id} {
       // Super-admin: full access to all users
-      allow read, write: if isSuperAdmin();
+      allow read, write: if signedIn() && userRole() == 'super_admin';
 
       // Regular user: read own data only
       // This allows users to verify their email, role, and tenant assignment
@@ -157,7 +127,7 @@ service cloud.firestore {
     /// - Purpose: Track admin actions for compliance and debugging
     match /_platform/audit_logs/{log_id} {
       // Only super-admin can view audit logs
-      allow read: if isSuperAdmin();
+      allow read: if signedIn() && userRole() == 'super_admin';
 
       // Writes blocked for clients (backend/Cloud Functions only)
       allow write: if false;
@@ -207,19 +177,16 @@ service cloud.firestore {
         // All tenant users can read services (needed for scheduling)
         allow read: if userInTenant(tenant_id) && isTenantActive(tenant_id);
 
-        // Only dueno can create services
+        // Tenant members can create services
         allow create: if userInTenant(tenant_id) &&
-                        isDueno() &&
                         isTenantActive(tenant_id);
 
-        // Only dueno can update services
+        // Tenant members can update services
         allow update: if userInTenant(tenant_id) &&
-                        isDueno() &&
                         isTenantActive(tenant_id);
 
-        // Only dueno can delete services
+        // Tenant members can delete services
         allow delete: if userInTenant(tenant_id) &&
-                        isDueno() &&
                         isTenantActive(tenant_id);
       }
 
@@ -238,46 +205,40 @@ service cloud.firestore {
         // All tenant users can read staff info
         allow read: if userInTenant(tenant_id) && isTenantActive(tenant_id);
 
-        // Only dueno can create staff records
+        // Tenant members can create staff records
         allow create: if userInTenant(tenant_id) &&
-                        isDueno() &&
                         isTenantActive(tenant_id);
 
-        // Only dueno can update staff records
+        // Tenant members can update staff records
         allow update: if userInTenant(tenant_id) &&
-                        isDueno() &&
                         isTenantActive(tenant_id);
 
-        // Only dueno can delete staff records
+        // Tenant members can delete staff records
         allow delete: if userInTenant(tenant_id) &&
-                        isDueno() &&
                         isTenantActive(tenant_id);
 
         /// AUSENCIAS (Absences / Vacations / Sick Leave)
         /// Path: tenants/{tenant_id}/trabajadores/{trabajador_id}/ausencias/{ausencia_id}
         /// Absences, vacations, sick leave, etc. for a staff member
-        /// Access: Inherits parent permissions (dueno manage, all read)
+        /// Access: Inherits parent permissions (all tenant members can manage)
         /// Notes:
         /// - Subcollection of trabajadores
-        /// - Only duenos can create/update/delete absences
+        /// - Tenant members can create/update/delete absences
         /// - All users can read to know who is available
         match /ausencias/{ausencia_id} {
           // All tenant users can read absence info
           allow read: if userInTenant(tenant_id) && isTenantActive(tenant_id);
 
-          // Only dueno can create absence records
+          // Tenant members can create absence records
           allow create: if userInTenant(tenant_id) &&
-                          isDueno() &&
                           isTenantActive(tenant_id);
 
-          // Only dueno can update absence records
+          // Tenant members can update absence records
           allow update: if userInTenant(tenant_id) &&
-                          isDueno() &&
                           isTenantActive(tenant_id);
 
-          // Only dueno can delete absence records
+          // Tenant members can delete absence records
           allow delete: if userInTenant(tenant_id) &&
-                          isDueno() &&
                           isTenantActive(tenant_id);
         }
       }
@@ -298,20 +259,16 @@ service cloud.firestore {
         // All tenant users can read client info
         allow read: if userInTenant(tenant_id) && isTenantActive(tenant_id);
 
-        // Dueno or recepcionista can create clients
+        // Tenant members can create clients
         allow create: if userInTenant(tenant_id) &&
-                        (isDueno() || isRecepcionista()) &&
                         isTenantActive(tenant_id);
 
-        // Dueno or recepcionista can update client info
+        // Tenant members can update client info
         allow update: if userInTenant(tenant_id) &&
-                        (isDueno() || isRecepcionista()) &&
                         isTenantActive(tenant_id);
 
-        // Only dueno can delete clients
-        // Business rule: Dueno decides data retention policy
+        // Tenant members can delete clients
         allow delete: if userInTenant(tenant_id) &&
-                        isDueno() &&
                         isTenantActive(tenant_id);
       }
 
@@ -330,24 +287,19 @@ service cloud.firestore {
       /// - Only dueno can delete turnos (maintains schedule integrity)
       match /turnos/{turno_id} {
         // All tenant users can read turnos
-        // (estilistas see their schedule, dueno/recepcionista see all)
         allow read: if userInTenant(tenant_id) && isTenantActive(tenant_id);
 
-        // Dueno or recepcionista can create turnos
+        // Tenant members can create turnos
         allow create: if userInTenant(tenant_id) &&
-                        (isDueno() || isRecepcionista()) &&
                         isTenantActive(tenant_id);
 
-        // Dueno or recepcionista can update turnos
-        // (mark as completado, change cliente, etc.)
+        // Tenant members can update turnos
         allow update: if userInTenant(tenant_id) &&
-                        (isDueno() || isRecepcionista()) &&
                         isTenantActive(tenant_id);
 
-        // Only dueno can delete turnos (audit trail, no direct deletion)
+        // Tenant members can delete turnos
         // Business rule: Cancellations should mark estado='cancelado' instead
         allow delete: if userInTenant(tenant_id) &&
-                        isDueno() &&
                         isTenantActive(tenant_id);
       }
 
@@ -374,7 +326,7 @@ service cloud.firestore {
       // CATCH-ALL FOR FUTURE SUBCOLLECTIONS
       /// Path: tenants/{tenant_id}/{collectionPath=**}
       /// Recursive rule for any future subcollections added under tenants/{tenant_id}
-      /// Access: Same as parent (tenant members can read if tenant is active)
+      /// Access: Same as parent (tenant members can read/write if tenant is active)
       /// Notes:
       /// - Ensures new subcollections inherit tenant-scoping by default
       /// - More specific rules above take precedence
@@ -384,10 +336,9 @@ service cloud.firestore {
         // Read: tenant members only, tenant must be active
         allow read: if userInTenant(tenant_id) && isTenantActive(tenant_id);
 
-        // Write: limited to dueno/recepcionista during tenant operational hours
+        // Write: tenant members only, tenant must be active
         // More specific rules above override this for exact access control
         allow write: if userInTenant(tenant_id) &&
-                       (isDueno() || isRecepcionista()) &&
                        isTenantActive(tenant_id);
       }
     }
