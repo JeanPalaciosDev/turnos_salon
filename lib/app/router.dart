@@ -30,11 +30,6 @@ import 'go_router_refresh_stream.dart';
 /// conserva el estado de cada pestaña. El resto de pantallas (login, detalle
 /// diario, detalle de cliente, y los CRUD del dueño) se apilan full-screen
 /// SOBRE la barra usando el `rootNavigatorKey`.
-/// Rutas accesibles solo por el dueño (matriz de permisos §7).
-const rutasSoloDueno = {'/servicios', '/trabajadores', '/usuarios', '/dashboard'};
-
-/// Rutas solo para super-admin (Phase 4: multi-tenant).
-const rutasSoloSuperAdmin = {'/sistema/tenants', '/audit-logs'};
 
 /// Navigator raíz: las rutas que lo usan como `parentNavigatorKey` se dibujan
 /// por encima de la `NavigationBar` (full-screen).
@@ -99,20 +94,6 @@ final routerProvider = Provider<GoRouter>((ref) {
           ref.read(authRepositoryProvider).signOut();
           return '/login';
         }
-      }
-
-      // Guard 4: Guard por rol: rutas admin-only solo para el dueño.
-      if (loggedIn &&
-          rutasSoloDueno.contains(state.matchedLocation) &&
-          ref.read(esDuenoProvider) == false) {
-        return '/agenda';
-      }
-
-      // Guard 5: Guard por rol: rutas super-admin-only solo para super_admin (Phase 4).
-      if (loggedIn &&
-          rutasSoloSuperAdmin.contains(state.matchedLocation) &&
-          (ref.read(isSuperAdminProvider).value ?? false) == false) {
-        return '/agenda';
       }
 
       return null;
