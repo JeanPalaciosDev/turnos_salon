@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../auth/application/auth_providers.dart';
 import '../../auth/data/auth_repository.dart';
 
 /// Pantalla "Más": agrupa las opciones que antes vivían en el `AppDrawer`,
@@ -12,9 +11,6 @@ class MasScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final esDueno = ref.watch(esDuenoProvider);
-    final esSuperAdmin = ref.watch(isSuperAdminProvider);
-
     return Scaffold(
       appBar: AppBar(title: const Text('Más')),
       body: SafeArea(
@@ -22,17 +18,15 @@ class MasScreen extends ConsumerWidget {
           padding: EdgeInsets.zero,
           children: [
             // Super-admin: gestión de tenants (salones).
-            if (esSuperAdmin.value ?? false) ...[
-              ListTile(
-                leading: const Icon(Icons.store_outlined),
-                title: const Text('Gestionar salones'),
-                onTap: () => context.goNamed('tenants-admin'),
-              ),
-              const Divider(),
-            ],
-            // Servicios, Trabajadores y Usuarios: solo dueño (matriz de
-            // permisos §7). Se apilan sobre la barra (root navigator).
-            if (esDueno) ...[
+            ListTile(
+              leading: const Icon(Icons.store_outlined),
+              title: const Text('Gestionar salones'),
+              onTap: () => context.goNamed('tenants-admin'),
+            ),
+            const Divider(),
+            // Servicios, Trabajadores y Usuarios (matriz de permisos §7).
+            // Se apilan sobre la barra (root navigator).
+            ...[
               ListTile(
                 leading: const Icon(Icons.design_services_outlined),
                 title: const Text('Servicios'),

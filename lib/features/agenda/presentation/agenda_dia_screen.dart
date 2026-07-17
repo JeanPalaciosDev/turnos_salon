@@ -52,10 +52,9 @@ class _AgendaDiaScreenState extends ConsumerState<AgendaDiaScreen> {
       }
     });
 
-    final rol = ref.watch(rolActualProvider);
-    final esEstilista = rol == RolTrabajador.estilista;
-    final trabajadorIdEstilista =
-        ref.watch(usuarioActualProvider).value?.trabajadorId;
+    final usuarioActual = ref.watch(usuarioActualProvider).value;
+    final esEstilista = usuarioActual?.rol == RolTrabajador.estilista;
+    final trabajadorIdEstilista = usuarioActual?.trabajadorId;
 
     final fecha = ref.watch(fechaSeleccionadaProvider);
     // Filtro efectivo: para el estilista siempre su trabajador_id (aunque el
@@ -67,7 +66,6 @@ class _AgendaDiaScreenState extends ConsumerState<AgendaDiaScreen> {
     final turnosAsync = ref.watch(turnosPorFechaProvider(fmtFecha(fecha)));
     final trabajadores =
         ref.watch(trabajadoresStreamProvider).value ?? const <Trabajador>[];
-    final puedeGestionar = ref.watch(puedeGestionarTurnosProvider);
     final vistaDia = ref.watch(vistaDiaProvider);
     // El toggle de vista solo tiene sentido en modo "Todos" (filtro == null) y
     // para no-estilistas: con un único trabajador la vista ya es cronológica.
@@ -88,14 +86,12 @@ class _AgendaDiaScreenState extends ConsumerState<AgendaDiaScreen> {
           ),
         ],
       ),
-      floatingActionButton: puedeGestionar
-          ? FloatingActionButton.extended(
-              onPressed: () => showTurnoForm(context,
-                  fechaInicial: fecha, trabajadorInicial: filtro),
-              icon: const Icon(Icons.add),
-              label: const Text('Turno'),
-            )
-          : null,
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => showTurnoForm(context,
+            fechaInicial: fecha, trabajadorInicial: filtro),
+        icon: const Icon(Icons.add),
+        label: const Text('Turno'),
+      ),
       body: Column(
         children: [
           _BarraFecha(fecha: fecha),

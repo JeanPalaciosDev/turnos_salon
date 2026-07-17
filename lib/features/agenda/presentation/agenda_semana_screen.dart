@@ -43,10 +43,9 @@ class _AgendaSemanaScreenState extends ConsumerState<AgendaSemanaScreen> {
       }
     });
 
-    final rol = ref.watch(rolActualProvider);
-    final esEstilista = rol == RolTrabajador.estilista;
-    final trabajadorIdEstilista =
-        ref.watch(usuarioActualProvider).value?.trabajadorId;
+    final usuarioActual = ref.watch(usuarioActualProvider).value;
+    final esEstilista = usuarioActual?.rol == RolTrabajador.estilista;
+    final trabajadorIdEstilista = usuarioActual?.trabajadorId;
 
     final fecha = ref.watch(fechaSeleccionadaProvider);
     final filtroRaw = ref.watch(trabajadorFiltroProvider);

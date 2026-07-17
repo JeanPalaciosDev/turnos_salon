@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/util/moneda.dart';
 import '../../../shared/providers/tenant_providers.dart';
-import '../../auth/application/auth_providers.dart';
 import '../application/turno_providers.dart';
 import '../domain/turno.dart';
 import 'cerrar_turno_sheet.dart';
@@ -29,9 +28,6 @@ class TurnoDetalleSheet extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final t = turno;
     final servicios = t.servicios.map((s) => s.nombre).join(' + ');
-    // dueno||recepcion pueden editar/eliminar/cobrar; el estilista solo cambia
-    // estado (el límite real lo refuerzan las reglas en 2E).
-    final puedeGestionar = ref.watch(puedeGestionarTurnosProvider);
 
     void setEstado(EstadoTurno estado) {
       final tenantId = ref.read(currentTenantIdProvider).value;
@@ -91,22 +87,20 @@ class TurnoDetalleSheet extends ConsumerWidget {
                 _EstadoButton('No vino', () => setEstado(EstadoTurno.noShow)),
               ],
             ),
-            if (puedeGestionar) ...[
-              const SizedBox(height: 8),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: () async {
-                    final cobrado = await showCerrarTurno(context, t);
-                    if (cobrado == true && context.mounted) {
-                      Navigator.of(context).pop();
-                    }
-                  },
-                  icon: const Icon(Icons.point_of_sale),
-                  label: const Text('Cerrar y cobrar'),
-                ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: () async {
+                  final cobrado = await showCerrarTurno(context, t);
+                  if (cobrado == true && context.mounted) {
+                    Navigator.of(context).pop();
+                  }
+                },
+                icon: const Icon(Icons.point_of_sale),
+                label: const Text('Cerrar y cobrar'),
               ),
-            ],
+            ),
             const Divider(height: 24),
           ]
           // Cancelado / No vino son reversibles: si el cliente llega tarde,
@@ -126,26 +120,25 @@ class TurnoDetalleSheet extends ConsumerWidget {
             ),
             const Divider(height: 24),
           ],
-          if (puedeGestionar)
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () => Navigator.of(context).pop('edit'),
-                    icon: const Icon(Icons.edit_outlined),
-                    label: const Text('Editar'),
-                  ),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => Navigator.of(context).pop('edit'),
+                  icon: const Icon(Icons.edit_outlined),
+                  label: const Text('Editar'),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () => _confirmDelete(context, ref),
-                    icon: const Icon(Icons.delete_outline),
-                    label: const Text('Eliminar'),
-                  ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => _confirmDelete(context, ref),
+                  icon: const Icon(Icons.delete_outline),
+                  label: const Text('Eliminar'),
                 ),
-              ],
-            ),
+              ),
+            ],
+          ),
         ],
       ),
     );

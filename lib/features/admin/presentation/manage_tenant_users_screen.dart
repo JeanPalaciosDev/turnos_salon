@@ -5,7 +5,6 @@ import '../../../app/tokens.dart';
 import '../../../shared/models/tenant_user.dart';
 import '../../auth/data/admin_user_service.dart';
 import '../data/tenant_user_repository.dart';
-import 'role_change_dialog.dart';
 
 /// Pantalla para gestionar los usuarios de un tenant específico.
 ///
@@ -465,16 +464,6 @@ class _ManageTenantUsersScreenState
                                 enabled: !_isProcessing,
                                 itemBuilder: (context) => [
                                   PopupMenuItem(
-                                    value: 'change_role',
-                                    child: const Row(
-                                      children: [
-                                        Icon(Icons.security_outlined),
-                                        SizedBox(width: Insets.md),
-                                        Text('Cambiar Rol'),
-                                      ],
-                                    ),
-                                  ),
-                                  PopupMenuItem(
                                     value: 'reset_password',
                                     child: const Row(
                                       children: [
@@ -513,14 +502,6 @@ class _ManageTenantUsersScreenState
                                 ],
                                 onSelected: (value) async {
                                   switch (value) {
-                                    case 'change_role':
-                                      await showDialog<bool>(
-                                        context: context,
-                                        builder: (context) => RoleChangeDialog(
-                                          tenantId: widget.tenantId,
-                                          user: user,
-                                        ),
-                                      );
                                     case 'reset_password':
                                       await _resendPasswordReset(user);
                                     case 'toggle_active':

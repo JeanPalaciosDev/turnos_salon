@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 import '../../../app/tokens.dart';
 import '../../../core/util/moneda.dart';
 import '../../admin/application/admin_providers.dart';
-import '../../auth/application/auth_providers.dart';
 import '../../trabajadores/application/trabajadores_providers.dart';
 import '../../trabajadores/domain/trabajador.dart';
 import '../application/dashboard_providers.dart';
@@ -128,15 +127,13 @@ class _DashboardBody extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final isSuperAdmin = ref.watch(isSuperAdminProvider).value ?? false;
-    final recentLogsAsync = isSuperAdmin ? ref.watch(allAuditLogsProvider) : null;
+    final recentLogsAsync = ref.watch(allAuditLogsProvider);
 
     return ListView(
       padding: const EdgeInsets.only(bottom: 24),
       children: [
-        // Recent Activity Section (super-admin only)
-        if (isSuperAdmin && recentLogsAsync != null)
-          _RecentActivitySection(logsAsync: recentLogsAsync),
+        // Recent Activity Section
+        _RecentActivitySection(logsAsync: recentLogsAsync),
 
         _Seccion<String, int>(
           titulo: 'Servicios más solicitados',

@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/util/horas.dart';
 import '../../../core/util/moneda.dart';
-import '../../auth/application/auth_providers.dart';
 import '../../turnos/application/turno_providers.dart';
 import '../../turnos/domain/turno.dart';
 import '../../turnos/presentation/estado_ui.dart';
@@ -22,19 +21,16 @@ class ClienteDetalleScreen extends ConsumerWidget {
     final c = cliente;
     final theme = Theme.of(context);
     final turnosAsync = ref.watch(turnosPorClienteProvider(c.id));
-    // Estilista = solo lectura: sin acción de editar.
-    final puedeGestionar = ref.watch(puedeGestionarTurnosProvider);
 
     return Scaffold(
       appBar: AppBar(
         title: Text(c.nombre),
         actions: [
-          if (puedeGestionar)
-            IconButton(
-              icon: const Icon(Icons.edit_outlined),
-              tooltip: 'Editar',
-              onPressed: () => showClienteForm(context, cliente: c),
-            ),
+          IconButton(
+            icon: const Icon(Icons.edit_outlined),
+            tooltip: 'Editar',
+            onPressed: () => showClienteForm(context, cliente: c),
+          ),
         ],
       ),
       body: ListView(

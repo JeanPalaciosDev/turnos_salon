@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 
 import '../../../app/tokens.dart';
 import '../../../shared/providers/tenant_providers.dart';
-import '../../auth/application/auth_providers.dart';
 import '../application/clientes_providers.dart';
 import '../domain/cliente.dart';
 import 'cliente_form.dart';
@@ -16,17 +15,13 @@ class ClientesScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final clientesAsync = ref.watch(clientesStreamProvider);
-    // Estilista = solo lectura; dueno||recepcion pueden alta/edición/borrado.
-    final puedeGestionar = ref.watch(puedeGestionarTurnosProvider);
     return Scaffold(
       appBar: AppBar(title: const Text('Clientes')),
-      floatingActionButton: puedeGestionar
-          ? FloatingActionButton.extended(
-              onPressed: () => showClienteForm(context),
-              icon: const Icon(Icons.add),
-              label: const Text('Cliente'),
-            )
-          : null,
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => showClienteForm(context),
+        icon: const Icon(Icons.add),
+        label: const Text('Cliente'),
+      ),
       body: clientesAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(
@@ -60,7 +55,6 @@ class _ClienteTile extends ConsumerWidget {
     final c = cliente;
     final inicial =
         c.nombre.isNotEmpty ? c.nombre.characters.first.toUpperCase() : '?';
-    final puedeGestionar = ref.watch(puedeGestionarTurnosProvider);
     final theme = Theme.of(context);
     return ListTile(
       minVerticalPadding: Insets.md,
@@ -74,13 +68,11 @@ class _ClienteTile extends ConsumerWidget {
         style: theme.textTheme.bodyMedium
             ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
       ),
-      trailing: puedeGestionar
-          ? IconButton(
-              icon: const Icon(Icons.delete_outline),
-              tooltip: 'Eliminar',
-              onPressed: () => _confirmDelete(context, ref),
-            )
-          : null,
+      trailing: IconButton(
+        icon: const Icon(Icons.delete_outline),
+        tooltip: 'Eliminar',
+        onPressed: () => _confirmDelete(context, ref),
+      ),
       onTap: () => context.push('/clientes/detalle', extra: c),
     );
   }

@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/tokens.dart';
 import '../../../shared/models/audit_log.dart';
-import '../../auth/application/auth_providers.dart';
 import '../application/admin_providers.dart';
 
 /// Pantalla para visualizar el audit log de la plataforma.
@@ -61,8 +60,6 @@ class _AuditLogScreenState extends ConsumerState<AuditLogScreen>
 
   @override
   Widget build(BuildContext context) {
-    final isSuperAdmin = ref.watch(isSuperAdminProvider).value ?? false;
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Audit Logs'),
@@ -136,13 +133,12 @@ class _AuditLogScreenState extends ConsumerState<AuditLogScreen>
                         ),
                 ),
 
-                // Tab 2: All logs (only if super-admin)
-                if (isSuperAdmin)
-                  _AuditLogContent(
-                    provider: _selectedAction == null
-                        ? allAuditLogsProvider
-                        : auditLogsByActionProvider(_selectedAction!),
-                  ),
+                // Tab 2: All logs
+                _AuditLogContent(
+                  provider: _selectedAction == null
+                      ? allAuditLogsProvider
+                      : auditLogsByActionProvider(_selectedAction!),
+                ),
               ],
             )
           : _AuditLogContent(
