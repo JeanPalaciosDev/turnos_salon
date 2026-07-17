@@ -55,7 +55,6 @@ class _TrabajadorTile extends StatelessWidget {
     final t = trabajador;
     final theme = Theme.of(context);
     final subtitle = <String>[
-      rolLabel(t.rol),
       if (t.horario.isNotEmpty) '${t.horario.length} franja(s)',
       if (!t.activo) 'inactivo',
     ].join('  ·  ');

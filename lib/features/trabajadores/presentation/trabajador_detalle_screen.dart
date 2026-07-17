@@ -81,7 +81,7 @@ class _Body extends ConsumerWidget {
         children: [
           ListTile(
             leading: CircleAvatar(backgroundColor: colorFromHex(t.color)),
-            title: Text(rolLabel(t.rol)),
+            title: Text(t.nombre),
             subtitle: Text(t.activo ? 'Activo' : 'Inactivo'),
           ),
           const Divider(),

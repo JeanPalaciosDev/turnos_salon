@@ -9,8 +9,8 @@ import '../data/tenant_user_repository.dart';
 /// Pantalla para gestionar los usuarios de un tenant específico.
 ///
 /// Muestra:
-/// - Tabla con usuarios (email, nombre, rol, fecha creación, último login)
-/// - Acciones: cambiar rol, enviar reseteo, desactivar, eliminar
+/// - Tabla con usuarios (email, nombre, fecha creación, último login)
+/// - Acciones: enviar reseteo, desactivar, eliminar
 /// - Bulk actions: seleccionar múltiples usuarios
 /// - Filtros y búsqueda (opcional)
 class ManageTenantUsersScreen extends ConsumerStatefulWidget {
@@ -290,13 +290,6 @@ class _ManageTenantUsersScreenState
     return '${date.day}/${date.month}/${date.year}';
   }
 
-  String _getRoleLabel(String role) => switch (role) {
-        'dueno' => 'Dueño',
-        'recepcionista' => 'Recepcionista',
-        'estilista' => 'Estilista',
-        _ => role,
-      };
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -441,14 +434,6 @@ class _ManageTenantUsersScreenState
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 crossAxisAlignment: CrossAxisAlignment.end,
                                 children: [
-                                  Chip(
-                                    label: Text(_getRoleLabel(user.rol)),
-                                    backgroundColor: cs.primaryContainer,
-                                    labelStyle: TextStyle(
-                                      color: cs.onPrimaryContainer,
-                                    ),
-                                  ),
-                                  const SizedBox(height: Insets.xs),
                                   Text(
                                     'Creado: ${_formatDate(user.createdAt)}',
                                     style: theme.textTheme.labelSmall,

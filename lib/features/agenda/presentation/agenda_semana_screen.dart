@@ -28,12 +28,10 @@ class _AgendaSemanaScreenState extends ConsumerState<AgendaSemanaScreen> {
   @override
   Widget build(BuildContext context) {
     // Prefiltro del estilista (copiado verbatim de la vista diaria): el
-    // estilista solo ve SU agenda y no puede cambiar de trabajador.
+    // usuario con trabajador asignado solo ve SU agenda y no puede cambiar.
     ref.listen(usuarioActualProvider, (prev, next) {
       final usuario = next.value;
-      if (usuario != null &&
-          usuario.rol == RolTrabajador.estilista &&
-          usuario.trabajadorId.isNotEmpty) {
+      if (usuario != null && usuario.trabajadorId.isNotEmpty) {
         final actual = ref.read(trabajadorFiltroProvider);
         if (actual != usuario.trabajadorId) {
           ref
@@ -44,7 +42,7 @@ class _AgendaSemanaScreenState extends ConsumerState<AgendaSemanaScreen> {
     });
 
     final usuarioActual = ref.watch(usuarioActualProvider).value;
-    final esEstilista = usuarioActual?.rol == RolTrabajador.estilista;
+    final esEstilista = usuarioActual?.trabajadorId.isNotEmpty ?? false;
     final trabajadorIdEstilista = usuarioActual?.trabajadorId;
 
     final fecha = ref.watch(fechaSeleccionadaProvider);

@@ -7,7 +7,7 @@ import '../../../shared/models/tenant_user.dart';
 /// Repositorio para gestionar usuarios de un tenant específico.
 ///
 /// Los usuarios se almacenan en `_platform/usuarios/{tenant_id}/{uid}`.
-/// Cada entrada representa un usuario con su email, rol y estado en ese tenant.
+/// Cada entrada representa un usuario con su email y estado en ese tenant.
 class TenantUserRepository {
   TenantUserRepository(this._db);
   final FirebaseFirestore _db;
@@ -60,7 +60,6 @@ class TenantUserRepository {
       await _getUsersCollection(tenantId).doc(user.uid).set({
         'email': user.email,
         'nombre': user.nombre,
-        'rol': user.rol,
         'activo': user.activo,
         'created_at': FieldValue.serverTimestamp(),
       });

@@ -29,7 +29,6 @@ class TrabajadorForm extends ConsumerStatefulWidget {
 class _TrabajadorFormState extends ConsumerState<TrabajadorForm> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _nombre;
-  late RolTrabajador _rol;
   late String _color;
   late bool _activo;
 
@@ -38,7 +37,6 @@ class _TrabajadorFormState extends ConsumerState<TrabajadorForm> {
     super.initState();
     final t = widget.trabajador;
     _nombre = TextEditingController(text: t?.nombre ?? '');
-    _rol = t?.rol ?? RolTrabajador.estilista;
     _color = t?.color ?? trabajadorColores.first;
     _activo = t?.activo ?? true;
   }
@@ -55,7 +53,6 @@ class _TrabajadorFormState extends ConsumerState<TrabajadorForm> {
     final trabajador = Trabajador(
       id: t?.id ?? '',
       nombre: _nombre.text.trim(),
-      rol: _rol,
       color: _color,
       activo: _activo,
       // Preservamos el horario existente; se edita en la pantalla de detalle.
@@ -113,16 +110,6 @@ class _TrabajadorFormState extends ConsumerState<TrabajadorForm> {
               textCapitalization: TextCapitalization.words,
               validator: (v) =>
                   (v == null || v.trim().isEmpty) ? 'Requerido' : null,
-            ),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<RolTrabajador>(
-              initialValue: _rol,
-              decoration: const InputDecoration(labelText: 'Rol'),
-              items: [
-                for (final r in RolTrabajador.values)
-                  DropdownMenuItem(value: r, child: Text(rolLabel(r))),
-              ],
-              onChanged: (v) => setState(() => _rol = v ?? _rol),
             ),
             const SizedBox(height: 16),
             Align(

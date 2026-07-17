@@ -1,15 +1,11 @@
-import '../../trabajadores/domain/trabajador.dart';
-
-/// Usuario del sistema: doc `usuarios/{uid}` (cuenta Auth + rol).
+/// Usuario del sistema: doc `usuarios/{uid}` (cuenta Auth).
 ///
 /// NO confundir con [Trabajador] (`trabajadores/{id}`, perfil de agenda).
 /// El [uid] es el UID de Firebase Auth (no autogenerado por Firestore).
-/// Reusa el enum [RolTrabajador] y `rolFromDb`/`rolToDb` de `trabajador.dart`.
 class Usuario {
   const Usuario({
     required this.uid,
     required this.trabajadorId,
-    required this.rol,
     required this.nombre,
     required this.email,
     required this.activo,
@@ -19,7 +15,6 @@ class Usuario {
 
   /// Vínculo a `trabajadores/{id}`.
   final String trabajadorId;
-  final RolTrabajador rol;
 
   /// Denormalizado para UI.
   final String nombre;
@@ -31,7 +26,6 @@ class Usuario {
   factory Usuario.fromMap(String uid, Map<String, dynamic> m) => Usuario(
         uid: uid,
         trabajadorId: m['trabajador_id'] as String? ?? '',
-        rol: rolFromDb(m['rol'] as String?),
         nombre: m['nombre'] as String? ?? '',
         email: m['email'] as String? ?? '',
         activo: m['activo'] as bool? ?? true,
@@ -41,7 +35,6 @@ class Usuario {
   /// repositorio (no aquí), por lo que no se incluye en este map.
   Map<String, dynamic> toMap() => {
         'trabajador_id': trabajadorId,
-        'rol': rolToDb(rol),
         'nombre': nombre,
         'email': email,
         'activo': activo,
@@ -49,7 +42,6 @@ class Usuario {
 
   Usuario copyWith({
     String? trabajadorId,
-    RolTrabajador? rol,
     String? nombre,
     String? email,
     bool? activo,
@@ -57,7 +49,6 @@ class Usuario {
       Usuario(
         uid: uid,
         trabajadorId: trabajadorId ?? this.trabajadorId,
-        rol: rol ?? this.rol,
         nombre: nombre ?? this.nombre,
         email: email ?? this.email,
         activo: activo ?? this.activo,

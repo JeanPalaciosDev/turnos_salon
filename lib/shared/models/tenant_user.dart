@@ -9,7 +9,6 @@ class TenantUser {
     required this.uid,
     required this.email,
     required this.nombre,
-    required this.rol,
     required this.activo,
     required this.createdAt,
     this.updatedAt,
@@ -24,10 +23,6 @@ class TenantUser {
 
   /// Full name of the user.
   final String nombre;
-
-  /// User role: 'dueno', 'recepcionista', or 'estilista'.
-  /// This is denormalized; the authoritative version is in Firebase Auth Custom Claims.
-  final String rol;
 
   /// Whether this user account is active.
   /// Inactive users are blocked from accessing their tenant's data.
@@ -48,7 +43,6 @@ class TenantUser {
       uid: uid,
       email: json['email'] as String? ?? '',
       nombre: json['nombre'] as String? ?? '',
-      rol: json['rol'] as String? ?? '',
       activo: json['activo'] as bool? ?? true,
       createdAt:
           (json['created_at'] as Timestamp?)?.toDate() ?? DateTime.now(),
@@ -61,7 +55,6 @@ class TenantUser {
   Map<String, dynamic> toJson() => {
         'email': email,
         'nombre': nombre,
-        'rol': rol,
         'activo': activo,
         'created_at': Timestamp.fromDate(createdAt),
         'updated_at': updatedAt == null
@@ -74,7 +67,6 @@ class TenantUser {
   TenantUser copyWith({
     String? email,
     String? nombre,
-    String? rol,
     bool? activo,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -84,7 +76,6 @@ class TenantUser {
         uid: uid,
         email: email ?? this.email,
         nombre: nombre ?? this.nombre,
-        rol: rol ?? this.rol,
         activo: activo ?? this.activo,
         createdAt: createdAt ?? this.createdAt,
         updatedAt: updatedAt ?? this.updatedAt,

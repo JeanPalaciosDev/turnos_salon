@@ -34,15 +34,13 @@ class AgendaDiaScreen extends ConsumerStatefulWidget {
 class _AgendaDiaScreenState extends ConsumerState<AgendaDiaScreen> {
   @override
   Widget build(BuildContext context) {
-    // Prefiltro del estilista (Fase 2E): cuando el usuario actual es estilista,
-    // forzamos el filtro de trabajador a SU trabajador_id una sola vez por
-    // emisión del usuario (vía ref.listen, no en cada build → sin loops de
+    // Prefiltro del estilista (Fase 2E): cuando el usuario actual tiene asignado
+    // un trabajador, forzamos el filtro de trabajador a SU trabajador_id una sola
+    // vez por emisión del usuario (vía ref.listen, no en cada build → sin loops de
     // rebuild) y bloqueamos los chips de cambio de trabajador.
     ref.listen(usuarioActualProvider, (prev, next) {
       final usuario = next.value;
-      if (usuario != null &&
-          usuario.rol == RolTrabajador.estilista &&
-          usuario.trabajadorId.isNotEmpty) {
+      if (usuario != null && usuario.trabajadorId.isNotEmpty) {
         final actual = ref.read(trabajadorFiltroProvider);
         if (actual != usuario.trabajadorId) {
           ref
@@ -53,7 +51,7 @@ class _AgendaDiaScreenState extends ConsumerState<AgendaDiaScreen> {
     });
 
     final usuarioActual = ref.watch(usuarioActualProvider).value;
-    final esEstilista = usuarioActual?.rol == RolTrabajador.estilista;
+    final esEstilista = usuarioActual?.trabajadorId.isNotEmpty ?? false;
     final trabajadorIdEstilista = usuarioActual?.trabajadorId;
 
     final fecha = ref.watch(fechaSeleccionadaProvider);

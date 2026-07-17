@@ -2,10 +2,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/firebase/firestore.dart';
-import '../../trabajadores/domain/trabajador.dart';
 import '../domain/usuario.dart';
 
-/// Acceso a la colección `usuarios` (cuenta + rol por uid de Auth).
+/// Acceso a la colección `usuarios` (cuenta por uid de Auth).
 ///
 /// Patrón copiado de `trabajadores_repository.dart`.
 class UsuariosRepository {
@@ -53,9 +52,6 @@ class UsuariosRepository {
 
   Future<void> setActivo(String uid, bool activo) =>
       _col.doc(uid).update({'activo': activo});
-
-  Future<void> actualizarRol(String uid, RolTrabajador rol) =>
-      _col.doc(uid).update({'rol': rolToDb(rol)});
 }
 
 final usuariosRepositoryProvider = Provider<UsuariosRepository>(

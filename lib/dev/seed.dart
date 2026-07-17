@@ -57,13 +57,13 @@ Future<void> seedEmulatorIfEmpty(FirebaseFirestore db) async {
   ];
   const trabajadores = <String, Trabajador>{
     'ana': Trabajador(
-        id: 'ana', nombre: 'Ana', rol: RolTrabajador.estilista,
+        id: 'ana', nombre: 'Ana',
         color: '#534AB7', activo: true, horario: horarioBase),
     'marta': Trabajador(
-        id: 'marta', nombre: 'Marta', rol: RolTrabajador.estilista,
+        id: 'marta', nombre: 'Marta',
         color: '#B7434A', activo: true, horario: horarioBase),
     'luis': Trabajador(
-        id: 'luis', nombre: 'Luis', rol: RolTrabajador.recepcion,
+        id: 'luis', nombre: 'Luis',
         color: '#2F8F6B', activo: true, horario: horarioBase),
   };
   trabajadores.forEach((id, t) =>
@@ -486,20 +486,19 @@ Future<void> _migrateToMultiTenant(FirebaseFirestore db) async {
 Future<void> _seedUsuariosAuth(FirebaseFirestore db) async {
   const password = 'salon123';
   // El dueño no está en la lista de trabajadores demo: creamos también su doc
-  // trabajador (activo, rol dueno) para que el vínculo quede coherente.
+  // trabajador para que el vínculo quede coherente.
   await db.collection('trabajadores').doc('dueno').set(const Trabajador(
         id: 'dueno',
         nombre: 'Dueño',
-        rol: RolTrabajador.dueno,
         color: '#444444',
         activo: true,
       ).toMap());
 
   const demo = <_UsuarioSeed>[
-    _UsuarioSeed('dueno@salon.test', 'dueno', RolTrabajador.dueno, 'Dueño'),
-    _UsuarioSeed('ana@salon.test', 'ana', RolTrabajador.estilista, 'Ana'),
-    _UsuarioSeed('marta@salon.test', 'marta', RolTrabajador.estilista, 'Marta'),
-    _UsuarioSeed('luis@salon.test', 'luis', RolTrabajador.recepcion, 'Luis'),
+    _UsuarioSeed('dueno@salon.test', 'dueno', 'Dueño'),
+    _UsuarioSeed('ana@salon.test', 'ana', 'Ana'),
+    _UsuarioSeed('marta@salon.test', 'marta', 'Marta'),
+    _UsuarioSeed('luis@salon.test', 'luis', 'Luis'),
   ];
 
   final auth = FirebaseAuth.instance;
@@ -514,7 +513,6 @@ Future<void> _seedUsuariosAuth(FirebaseFirestore db) async {
         ...Usuario(
           uid: uid,
           trabajadorId: u.trabajadorId,
-          rol: u.rol,
           nombre: u.nombre,
           email: u.email,
           activo: true,
@@ -536,10 +534,9 @@ Future<void> _seedUsuariosAuth(FirebaseFirestore db) async {
 }
 
 class _UsuarioSeed {
-  const _UsuarioSeed(this.email, this.trabajadorId, this.rol, this.nombre);
+  const _UsuarioSeed(this.email, this.trabajadorId, this.nombre);
   final String email;
   final String trabajadorId;
-  final RolTrabajador rol;
   final String nombre;
 }
 

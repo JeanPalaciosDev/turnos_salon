@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../trabajadores/application/trabajadores_providers.dart';
-import '../../trabajadores/domain/trabajador.dart';
 import '../data/admin_user_service.dart';
 import '../data/custom_claims_service.dart';
 import '../data/usuarios_repository.dart';
@@ -46,7 +45,6 @@ class _UsuarioFormState extends ConsumerState<UsuarioForm> {
   final _email = TextEditingController();
   final _password = TextEditingController();
   final _nombre = TextEditingController();
-  RolTrabajador _rol = RolTrabajador.estilista;
   String? _trabajadorId;
   bool _guardando = false;
 
@@ -72,14 +70,15 @@ class _UsuarioFormState extends ConsumerState<UsuarioForm> {
             password: _password.text,
           );
 
-      // 2) Asignar Custom Claims (tenant_id y role) si está disponible el tenantId.
+      // 2) Asignar Custom Claims (tenant_id) si está disponible el tenantId.
       // Fase 2 (multi-tenant): si no hay tenantId, se omite este paso.
+      // Nota: los roles se eliminaron en Phase 7, solo se asigna tenant_id.
       if (widget.tenantId != null) {
         try {
           await ref.read(customClaimsServiceProvider).setClaims(
                 uid: uid,
                 tenantId: widget.tenantId!,
-                role: rolToDb(_rol),
+                role: '', // Sin rol; simplificado en Phase 7
               );
         } catch (e) {
           // Si Custom Claims fallan, abortamos para evitar usuario sin claims.
@@ -91,7 +90,6 @@ class _UsuarioFormState extends ConsumerState<UsuarioForm> {
       final usuario = Usuario(
         uid: uid,
         trabajadorId: _trabajadorId ?? '',
-        rol: _rol,
         nombre: _nombre.text.trim(),
         email: _email.text.trim(),
         activo: true,
@@ -164,17 +162,6 @@ class _UsuarioFormState extends ConsumerState<UsuarioForm> {
               validator: (v) => (v == null || v.length < 6)
                   ? 'Mínimo 6 caracteres'
                   : null,
-            ),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<RolTrabajador>(
-              initialValue: _rol,
-              decoration: const InputDecoration(labelText: 'Rol'),
-              items: [
-                for (final r in RolTrabajador.values)
-                  DropdownMenuItem(value: r, child: Text(rolLabel(r))),
-              ],
-              onChanged:
-                  _guardando ? null : (v) => setState(() => _rol = v ?? _rol),
             ),
             const SizedBox(height: 12),
             trabajadoresAsync.when(

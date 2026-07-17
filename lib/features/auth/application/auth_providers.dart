@@ -1,7 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../trabajadores/domain/trabajador.dart';
 import '../data/auth_repository.dart';
 import '../data/usuarios_repository.dart';
 import '../domain/usuario.dart';

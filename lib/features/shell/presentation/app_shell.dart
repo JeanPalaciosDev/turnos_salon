@@ -25,17 +25,9 @@ class AppShell extends ConsumerWidget {
     final tenant = tenantAsync.value;
     final salonName = tenant?.name;
 
-    // Observar usuario actual y su rol
+    // Observar usuario actual
     final usuarioAsync = ref.watch(usuarioActualProvider);
     final usuario = usuarioAsync.value;
-    final rol = usuario?.rol;
-
-    // Construir subtítulo con rol del usuario
-    String? subtitulo;
-    if (usuario != null && rol != null) {
-      final rolLabel = _getRolLabel(rol);
-      subtitulo = rol.name == 'dueno' ? 'Dueño' : rolLabel;
-    }
 
     return Scaffold(
       appBar: salonName != null
@@ -45,9 +37,9 @@ class AppShell extends ConsumerWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(salonName),
-                  if (subtitulo != null)
+                  if (usuario?.nombre.isNotEmpty ?? false)
                     Text(
-                      subtitulo,
+                      usuario!.nombre,
                       style: Theme.of(context).textTheme.labelSmall,
                     ),
                 ],
@@ -129,16 +121,5 @@ class AppShell extends ConsumerWidget {
         ],
       ),
     );
-  }
-
-  /// Convierte el rol a una etiqueta legible en español.
-  static String _getRolLabel(dynamic rol) {
-    final rolName = rol.toString().split('.').last;
-    return switch (rolName) {
-      'dueno' => 'Dueño',
-      'recepcion' => 'Recepcionista',
-      'estilista' => 'Estilista',
-      _ => rolName,
-    };
   }
 }

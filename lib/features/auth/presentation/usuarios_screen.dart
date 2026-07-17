@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/tokens.dart';
-import '../../trabajadores/domain/trabajador.dart';
 import '../data/usuarios_repository.dart';
 import '../domain/usuario.dart';
 import 'usuario_form.dart';
@@ -63,10 +62,7 @@ class _UsuarioTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final u = usuario;
-    final subtitle = <String>[
-      rolLabel(u.rol),
-      if (u.email.isNotEmpty) u.email,
-    ].join('  ·  ');
+    final subtitle = u.email.isNotEmpty ? u.email : '(sin email)';
 
     final theme = Theme.of(context);
     return ListTile(
@@ -86,39 +82,7 @@ class _UsuarioTile extends ConsumerWidget {
         onChanged: (v) =>
             ref.read(usuariosRepositoryProvider).setActivo(u.uid, v),
       ),
-      onTap: () => _editarRol(context, ref),
     );
-  }
-
-  /// Menú simple para cambiar el rol de un usuario existente.
-  Future<void> _editarRol(BuildContext context, WidgetRef ref) async {
-    final nuevo = await showModalBottomSheet<RolTrabajador>(
-      context: context,
-      showDragHandle: true,
-      builder: (_) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
-              child: Text('Rol de ${usuario.nombre}',
-                  style: Theme.of(context).textTheme.titleMedium),
-            ),
-            for (final r in RolTrabajador.values)
-              ListTile(
-                title: Text(rolLabel(r)),
-                trailing: r == usuario.rol ? const Icon(Icons.check) : null,
-                onTap: () => Navigator.pop(context, r),
-              ),
-          ],
-        ),
-      ),
-    );
-    if (nuevo != null && nuevo != usuario.rol) {
-      await ref
-          .read(usuariosRepositoryProvider)
-          .actualizarRol(usuario.uid, nuevo);
-    }
   }
 }
 
